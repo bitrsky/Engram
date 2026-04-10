@@ -1,0 +1,86 @@
+[project]
+name = "engram"
+version = "0.1.0"
+description = "Markdown-First AI Memory System — structured recall with semantic search, fact extraction, and conflict resolution."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    {name = "bitrsky"},
+]
+keywords = [
+    "ai", "memory", "llm", "rag", "chromadb", "mcp",
+    "markdown", "knowledge-graph", "fact-extraction",
+    "semantic-search", "claude", "chatgpt",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "chromadb>=0.5.0,<0.7",
+    "pyyaml>=6.0,<7",
+]
+
+[project.urls]
+Homepage = "https://github.com/bitrsky/Engram"
+Repository = "https://github.com/bitrsky/Engram"
+"Bug Tracker" = "https://github.com/bitrsky/Engram/issues"
+
+[project.scripts]
+engram = "engram.cli:main"
+
+[project.optional-dependencies]
+mcp = ["mcp[cli]>=1.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/engram"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["engram"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "if __name__",
+    "pragma: no cover",
+]
