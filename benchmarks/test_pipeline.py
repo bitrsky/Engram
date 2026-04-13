@@ -1,5 +1,5 @@
 """
-test_pipeline.py — Layer 2: Pipeline quality benchmarks.
+test_pipeline.py -- Layer 2: Pipeline quality benchmarks.
 
 Tests each stage of the remember() pipeline:
 1. Quality gate: precision/recall for noise rejection
@@ -12,9 +12,9 @@ import pytest
 from .metrics import ClassificationMetrics, compute_classification_metrics
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Quality Gate Test Data
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 # Good memories that SHOULD pass the quality gate
 GOOD_MEMORIES = [
@@ -102,7 +102,7 @@ class TestQualityGate:
             if not should_store:
                 failed.append(f"  [{i}] '{content[:60]}...' -> rejected")
 
-        print(f"\nQuality gate — good memories:")
+        print(f"\nQuality gate -- good memories:")
         print(f"  Passed: {metrics.true_positives}/{len(GOOD_MEMORIES)}")
         print(f"  Recall: {metrics.recall:.1%}")
         if failed:
@@ -112,7 +112,7 @@ class TestQualityGate:
 
         # At least 90% of good memories should pass
         assert metrics.recall >= 0.90, (
-            f"Quality gate recall is {metrics.recall:.1%} — too many good memories rejected"
+            f"Quality gate recall is {metrics.recall:.1%} -- too many good memories rejected"
         )
 
     def test_noise_rejected(self):
@@ -130,7 +130,7 @@ class TestQualityGate:
             if should_store:
                 leaked.append(f"  [{i}] '{content[:60]}' -> should have been rejected")
 
-        print(f"\nQuality gate — noise rejection:")
+        print(f"\nQuality gate -- noise rejection:")
         print(f"  Rejected: {metrics.true_negatives}/{len(NOISE_SAMPLES)}")
         print(f"  Precision (of rejections): {1 - metrics.false_positives / max(1, len(NOISE_SAMPLES)):.1%}")
         if leaked:
@@ -141,7 +141,7 @@ class TestQualityGate:
         # At least 85% of noise should be rejected
         rejection_rate = metrics.true_negatives / len(NOISE_SAMPLES)
         assert rejection_rate >= 0.85, (
-            f"Noise rejection rate is {rejection_rate:.1%} — too much noise passing through"
+            f"Noise rejection rate is {rejection_rate:.1%} -- too much noise passing through"
         )
 
     def test_quality_gate_combined_metrics(self):
@@ -166,12 +166,12 @@ class TestQualityGate:
         print(f"  F1:        {metrics.f1:.1%}")
         print(f"  Accuracy:  {metrics.accuracy:.1%}")
 
-        assert metrics.f1 >= 0.85, f"Quality gate F1 is {metrics.f1:.1%} — below 85% threshold"
+        assert metrics.f1 >= 0.85, f"Quality gate F1 is {metrics.f1:.1%} -- below 85% threshold"
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Fact Extraction Test Data
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 FACT_EXTRACTION_CASES = [
     {
@@ -278,5 +278,5 @@ class TestFactExtraction:
 
         # Heuristic extractor should find at least 50% of expected facts
         assert recall >= 0.40, (
-            f"Fact extraction recall is {recall:.1%} — below 40% threshold"
+            f"Fact extraction recall is {recall:.1%} -- below 40% threshold"
         )

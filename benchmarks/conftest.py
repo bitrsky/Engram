@@ -1,5 +1,5 @@
 """
-conftest.py — Shared fixtures for Engram benchmarks.
+conftest.py -- Shared fixtures for Engram benchmarks.
 
 Provides an isolated Engram instance with synthetic data pre-ingested.
 """
@@ -17,9 +17,9 @@ BENCHMARKS_DIR = Path(__file__).parent
 DATASETS_DIR = BENCHMARKS_DIR / "datasets"
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Data loading
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 
 def load_conversations() -> List[dict]:
@@ -56,9 +56,9 @@ def conversation_to_text(session: dict) -> str:
     return "\n".join(lines)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Fixtures
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 
 @pytest.fixture(scope="session")
@@ -76,7 +76,7 @@ def engram_bench_dir(tmp_path_factory):
     (engram_dir / "facts").mkdir()
     (engram_dir / ".index").mkdir()
 
-    # Create minimal config (no LLM — heuristic mode only)
+    # Create minimal config (no LLM -- heuristic mode only)
     config_path = engram_dir / "config.yaml"
     config_path.write_text(
         "llm:\n  provider: none\n",

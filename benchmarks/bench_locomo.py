@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-bench_locomo.py — Evaluate Engram retrieval on the LoCoMo benchmark.
+bench_locomo.py -- Evaluate Engram retrieval on the LoCoMo benchmark.
 
 LoCoMo (Maharana et al., 2024) contains 10 long-term conversations with:
   - ~300 turns, ~9K tokens, up to 35 sessions per conversation
@@ -13,7 +13,7 @@ This script:
   2. For each conversation: ingests all sessions into an Engram index
   3. For each QA pair: queries Engram and checks if the evidence turn's
      session appears in the top-K retrieved sessions
-  4. Computes Recall@K, NDCG@K, MRR — overall and per QA category
+  4. Computes Recall@K, NDCG@K, MRR -- overall and per QA category
   5. Saves results to benchmarks/results/
 
 Usage:
@@ -47,9 +47,9 @@ from .metrics import (
 )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Adapters: LoCoMo -> Engram
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 # LoCoMo QA categories (1-indexed in the dataset)
 LOCOMO_CATEGORIES = {
@@ -120,20 +120,28 @@ def _evidence_to_session_ids(evidence_ids: List[str]) -> Set[str]:
     """
     Convert LoCoMo evidence dialog IDs to session IDs.
 
-    Evidence IDs are like "1_3", "5_2" where first number = session number.
-    We map "1_3" -> "session_1", "5_2" -> "session_5", etc.
+    Evidence IDs are like "D1:3", "D5:2" where number after D = session number.
+    We map "D1:3" -> "session_1", "D5:2" -> "session_5", etc.
     """
     session_ids = set()
     for eid in evidence_ids:
-        parts = eid.split("_")
-        if parts and parts[0].isdigit():
-            session_ids.add(f"session_{parts[0]}")
+        # Format: D{session}:{turn}
+        eid = eid.strip()
+        if eid.startswith("D"):
+            parts = eid[1:].split(":")
+            if parts and parts[0].isdigit():
+                session_ids.add(f"session_{parts[0]}")
+        else:
+            # Fallback: try splitting on _ or :
+            parts = eid.replace(":", "_").split("_")
+            if parts and parts[0].isdigit():
+                session_ids.add(f"session_{parts[0]}")
     return session_ids
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Core benchmark runner
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 def evaluate_conversation(
     sample: dict,
@@ -291,7 +299,7 @@ def run_benchmark(
         k_values = [3, 5, 10]
 
     print(f"\n{'='*60}")
-    print(f"LoCoMo Benchmark — Engram Retrieval Evaluation")
+    print(f"LoCoMo Benchmark -- Engram Retrieval Evaluation")
     print(f"{'='*60}")
     print(f"K values:   {k_values}")
     print(f"Limit:      {limit or 'all (10 conversations)'}")
@@ -313,7 +321,7 @@ def run_benchmark(
     for i, sample in enumerate(data):
         sample_id = sample.get("sample_id", f"conv_{i}")
         n_qa = len(sample.get("qa", []))
-        print(f"  [{i+1}/{len(data)}] {sample_id} — {n_qa} QA pairs")
+        print(f"  [{i+1}/{len(data)}] {sample_id} -- {n_qa} QA pairs")
 
         conv_results = evaluate_conversation(sample, k_values)
         print(f"           -> {len(conv_results)} evaluated")
@@ -321,7 +329,7 @@ def run_benchmark(
 
     elapsed_total = time.time() - start_time
 
-    # ── Aggregate ──
+    # -- Aggregate --
     print(f"\nTotal: {len(all_results)} QA pairs evaluated")
     print(f"Time:  {elapsed_total:.1f}s\n")
 
@@ -364,7 +372,7 @@ def run_benchmark(
         cat_summary["mrr"] = round(sum(mrr_vals) / len(mrr_vals), 4) if mrr_vals else 0
         summary["by_category"][cat] = cat_summary
 
-    # ── Print report ──
+    # -- Print report --
     print("=" * 60)
     print("RESULTS")
     print("=" * 60)
@@ -382,7 +390,7 @@ def run_benchmark(
         mrr = stats.get("mrr", 0)
         print(f"  {cat:25s} {stats['count']:6d} {r_k:8.4f} {mrr:8.4f}")
 
-    # ── Save results ──
+    # -- Save results --
     results_dir = Path(__file__).parent / "results"
     results_dir.mkdir(exist_ok=True)
 
@@ -404,9 +412,9 @@ def run_benchmark(
     return all_results, summary
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # CLI
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 def main():
     parser = argparse.ArgumentParser(

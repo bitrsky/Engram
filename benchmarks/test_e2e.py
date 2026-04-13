@@ -1,5 +1,5 @@
 """
-test_e2e.py — Layer 4: End-to-end benchmark.
+test_e2e.py -- Layer 4: End-to-end benchmark.
 
 Full pipeline: ingest conversations -> search -> check answer in results.
 Tests the complete Engram system from ingestion to retrieval.

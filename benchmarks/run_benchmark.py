@@ -1,5 +1,5 @@
 """
-run_benchmark.py — CLI entry point for Engram benchmarks.
+run_benchmark.py -- CLI entry point for Engram benchmarks.
 
 Usage:
     python -m benchmarks.run_benchmark                    # Run all benchmarks
@@ -73,18 +73,18 @@ Examples:
 
     args = parser.parse_args()
 
-    # ── External benchmarks (standalone scripts, not pytest) ──
+    # -- External benchmarks (standalone scripts, not pytest) --
     if args.layer in EXTERNAL_BENCHMARKS:
         script = EXTERNAL_BENCHMARKS[args.layer]
         print("=" * 60)
-        print(f"  ENGRAM BENCHMARK — {args.layer.upper()}")
+        print(f"  ENGRAM BENCHMARK -- {args.layer.upper()}")
         print(f"  Time:  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("=" * 60)
         cmd = [sys.executable, "-m", f"benchmarks.{script.replace('.py', '')}"]
         result = subprocess.run(cmd, cwd=str(BENCHMARKS_DIR.parent))
         sys.exit(result.returncode)
 
-    # ── Internal benchmarks (pytest-based) ──
+    # -- Internal benchmarks (pytest-based) --
     # Build pytest command
     cmd = [sys.executable, "-m", "pytest"]
 

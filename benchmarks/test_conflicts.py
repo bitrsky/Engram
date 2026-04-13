@@ -1,5 +1,5 @@
 """
-test_conflicts.py — Layer 3: Conflict detection benchmarks.
+test_conflicts.py -- Layer 3: Conflict detection benchmarks.
 
 Tests the 4-type conflict classification system:
 - temporal_succession
@@ -14,9 +14,9 @@ import pytest
 from .metrics import ClassificationMetrics, per_class_accuracy
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Test Data — conflict pairs
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
+# Test Data -- conflict pairs
+# ===========================================================================
 
 def _make_fact(subject, predicate, obj, since="", source=""):
     """Helper to create a Fact object."""
@@ -31,7 +31,7 @@ def _make_fact(subject, predicate, obj, since="", source=""):
 
 
 CONFLICT_TEST_CASES = [
-    # ── temporal_succession: both have dates, new is later ──
+    # -- temporal_succession: both have dates, new is later --
     {
         "old": ("saas-app", "uses_database", "MySQL", "2025-01"),
         "new": ("saas-app", "uses_database", "PostgreSQL", "2025-03"),
@@ -63,7 +63,7 @@ CONFLICT_TEST_CASES = [
         "expected_type": "temporal_succession",
     },
 
-    # ── implicit_supersede: replacement language ──
+    # -- implicit_supersede: replacement language --
     {
         "old": ("saas-app", "uses_database", "MySQL", ""),
         "new": ("saas-app", "uses_database", "PostgreSQL", ""),
@@ -107,7 +107,7 @@ CONFLICT_TEST_CASES = [
         "expected_type": "implicit_supersede",
     },
 
-    # ── opinion_change: preference predicates ──
+    # -- opinion_change: preference predicates --
     {
         "old": ("Alex", "prefers", "JavaScript", ""),
         "new": ("Alex", "prefers", "TypeScript", ""),
@@ -127,7 +127,7 @@ CONFLICT_TEST_CASES = [
         "expected_type": "opinion_change",
     },
 
-    # ── hard_contradiction: no dates, no replacement language, not opinion ──
+    # -- hard_contradiction: no dates, no replacement language, not opinion --
     {
         "old": ("saas-app", "uses_database", "MySQL", ""),
         "new": ("saas-app", "uses_database", "PostgreSQL", ""),
@@ -209,7 +209,7 @@ class TestConflictClassification:
 
         # Overall accuracy should be at least 75%
         assert overall_acc >= 0.70, (
-            f"Conflict classification accuracy is {overall_acc:.1%} — below 70% threshold"
+            f"Conflict classification accuracy is {overall_acc:.1%} -- below 70% threshold"
         )
 
     def test_conflict_detection(self):

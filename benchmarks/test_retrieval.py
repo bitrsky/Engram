@@ -1,13 +1,13 @@
 """
-test_retrieval.py — Layer 1: Retrieval recall benchmarks.
+test_retrieval.py -- Layer 1: Retrieval recall benchmarks.
 
 Tests whether vector search retrieves the correct evidence session(s)
 for each question in the benchmark dataset.
 
 Modes tested:
-1. raw — bare vector search, no filters
-2. project_filtered — with project metadata filter
-3. topic_filtered — with topic metadata filter (requires knowing topic)
+1. raw -- bare vector search, no filters
+2. project_filtered -- with project metadata filter
+3. topic_filtered -- with topic metadata filter (requires knowing topic)
 
 Results are collected and reported as R@3, R@5, R@10, NDCG@5.
 """
@@ -72,7 +72,7 @@ class TestRetrievalRaw:
         return results
 
     def test_raw_retrieval_dev(self, bench_index, dev_questions):
-        """Run raw retrieval on dev split — for tuning."""
+        """Run raw retrieval on dev split -- for tuning."""
         results = self._run_retrieval(bench_index, dev_questions, mode="raw")
         agg = aggregate_retrieval_results(results)
 
@@ -85,7 +85,7 @@ class TestRetrievalRaw:
         save_results_jsonl(results, RESULTS_DIR / "raw_dev.jsonl")
 
     def test_raw_retrieval_test(self, bench_index, test_questions):
-        """Run raw retrieval on test split — the real benchmark."""
+        """Run raw retrieval on test split -- the real benchmark."""
         results = self._run_retrieval(bench_index, test_questions, mode="raw")
         agg = aggregate_retrieval_results(results)
 
@@ -107,7 +107,7 @@ class TestRetrievalRaw:
 
         # Minimum quality bar: R@10 should be > 50% (basic sanity check)
         assert agg["recall_at_10"] > 0.3, (
-            f"R@10 is {agg['recall_at_10']:.1%} — below minimum quality bar of 30%"
+            f"R@10 is {agg['recall_at_10']:.1%} -- below minimum quality bar of 30%"
         )
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-download_datasets.py — Download external benchmark datasets for Engram.
+download_datasets.py -- Download external benchmark datasets for Engram.
 
 Fetches academic datasets at runtime so they never live in the repo.
 Cached in benchmarks/.cache/ (gitignored).
@@ -24,14 +24,14 @@ from pathlib import Path
 BENCHMARKS_DIR = Path(__file__).parent
 CACHE_DIR = BENCHMARKS_DIR / ".cache"
 
-# ── Dataset locations ────────────────────────────────────────────────────────
+# -- Dataset locations --------------------------------------------------------
 
-LONGMEMEVAL_HF_REPO = "xiaowu0162/longmemeval"
-LONGMEMEVAL_FILES = [
-    "longmemeval_s.json",
-    "longmemeval_m.json",
-    "longmemeval_oracle.json",
-]
+LONGMEMEVAL_HF_REPO = "xiaowu0162/longmemeval-cleaned"
+LONGMEMEVAL_FILES = {
+    "s": "longmemeval_s_cleaned.json",
+    "m": "longmemeval_m_cleaned.json",
+    "oracle": "longmemeval_oracle.json",
+}
 LONGMEMEVAL_DIR = CACHE_DIR / "longmemeval"
 
 LOCOMO_GIT_REPO = "https://github.com/snap-research/locomo.git"
@@ -39,7 +39,7 @@ LOCOMO_DIR = CACHE_DIR / "locomo"
 LOCOMO_DATA_FILE = LOCOMO_DIR / "data" / "locomo10.json"
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# -- Helpers ------------------------------------------------------------------
 
 def _ensure_dir(path: Path):
     path.mkdir(parents=True, exist_ok=True)
@@ -84,11 +84,11 @@ def _git_clone_shallow(repo_url: str, dest: Path):
     print(f"  OK Cloned to {dest}")
 
 
-# ── Dataset downloaders ──────────────────────────────────────────────────────
+# -- Dataset downloaders ------------------------------------------------------
 
 def download_longmemeval(variant: str = "s") -> Path:
     """
-    Download LongMemEval dataset.
+    Download LongMemEval dataset (cleaned version).
 
     Args:
         variant: "s" (small, ~40 sessions), "m" (medium, ~500 sessions),
@@ -97,8 +97,8 @@ def download_longmemeval(variant: str = "s") -> Path:
     Returns:
         Path to the downloaded JSON file.
     """
-    filename = f"longmemeval_{variant}.json"
-    if filename not in LONGMEMEVAL_FILES:
+    filename = LONGMEMEVAL_FILES.get(variant)
+    if filename is None:
         raise ValueError(
             f"Unknown variant '{variant}'. Choose from: s, m, oracle"
         )
@@ -127,14 +127,14 @@ def download_all():
     print("Downloading external benchmark datasets for Engram")
     print("=" * 60)
 
-    print("\n── LongMemEval (HuggingFace) ──")
+    print("\n-- LongMemEval (HuggingFace) --")
     for variant in ["s", "oracle"]:
         try:
             download_longmemeval(variant)
         except Exception as e:
             print(f"  ! Skipping longmemeval_{variant}: {e}")
 
-    print("\n── LoCoMo (GitHub) ──")
+    print("\n-- LoCoMo (GitHub) --")
     try:
         download_locomo()
     except Exception as e:
@@ -143,7 +143,7 @@ def download_all():
     print("\nOK Done. Datasets cached in:", CACHE_DIR)
 
 
-# ── Loaders (used by benchmark scripts) ──────────────────────────────────────
+# -- Loaders (used by benchmark scripts) --------------------------------------
 
 def load_longmemeval(variant: str = "s") -> list:
     """
@@ -173,7 +173,7 @@ def load_locomo() -> list:
         return json.load(f)
 
 
-# ── CLI ──────────────────────────────────────────────────────────────────────
+# -- CLI ----------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(
@@ -194,10 +194,10 @@ def main():
     args = parser.parse_args()
 
     if args.dataset == "longmemeval":
-        print("── LongMemEval ──")
+        print("-- LongMemEval --")
         download_longmemeval(args.variant)
     elif args.dataset == "locomo":
-        print("── LoCoMo ──")
+        print("-- LoCoMo --")
         download_locomo()
     else:
         download_all()

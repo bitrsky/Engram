@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-bench_longmemeval.py — Evaluate Engram retrieval on the LongMemEval benchmark.
+bench_longmemeval.py -- Evaluate Engram retrieval on the LongMemEval benchmark.
 
 LongMemEval (Wu et al., 2024) tests five core memory abilities:
-  1. Information Extraction   — single-session-user / preference / assistant
-  2. Multi-Session Reasoning  — multi-session
-  3. Knowledge Updates        — knowledge-update
-  4. Temporal Reasoning       — temporal-reasoning
-  5. Abstention               — *_abs question IDs
+  1. Information Extraction   -- single-session-user / preference / assistant
+  2. Multi-Session Reasoning  -- multi-session
+  3. Knowledge Updates        -- knowledge-update
+  4. Temporal Reasoning       -- temporal-reasoning
+  5. Abstention               -- *_abs question IDs
 
 This script:
   1. Downloads LongMemEval from HuggingFace (cached in .cache/)
@@ -54,9 +54,9 @@ from .metrics import (
 )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Adapters: LongMemEval -> Engram
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 # Map LongMemEval internal question_type names -> standardised category names
 QUESTION_TYPE_MAP = {
@@ -115,9 +115,9 @@ def _sessions_to_documents(entry: dict) -> List[Tuple[str, str]]:
     return documents
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Core benchmark runner
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 def evaluate_single_question(
     entry: dict,
@@ -131,7 +131,7 @@ def evaluate_single_question(
 
     Returns a result dict or None if the question should be skipped.
     """
-    # Lazy imports — keep startup fast
+    # Lazy imports -- keep startup fast
     from engram.config import EngramConfig
     from engram.index import IndexManager
     from engram.store import write_memory
@@ -268,7 +268,7 @@ def run_benchmark(
         skip_types = []
 
     print(f"\n{'='*60}")
-    print(f"LongMemEval Benchmark — Engram Retrieval Evaluation")
+    print(f"LongMemEval Benchmark -- Engram Retrieval Evaluation")
     print(f"{'='*60}")
     print(f"Variant:    longmemeval_{variant}")
     print(f"K values:   {k_values}")
@@ -302,7 +302,7 @@ def run_benchmark(
         if (i + 1) % 10 == 0 or i == 0:
             elapsed = time.time() - start_time
             rate = (i + 1) / elapsed if elapsed > 0 else 0
-            print(f"  [{i+1}/{len(data)}] {rate:.1f} q/s — {qid} ({qtype})")
+            print(f"  [{i+1}/{len(data)}] {rate:.1f} q/s -- {qid} ({qtype})")
 
         result = evaluate_single_question(entry, k_values)
         if result is None:
@@ -312,7 +312,7 @@ def run_benchmark(
 
     elapsed_total = time.time() - start_time
 
-    # ── Aggregate ──
+    # -- Aggregate --
     print(f"\nEvaluated {len(results)} questions, skipped {skipped}")
     print(f"Total time: {elapsed_total:.1f}s ({len(results)/elapsed_total:.1f} q/s)\n")
 
@@ -360,7 +360,7 @@ def run_benchmark(
         cat_summary["mrr"] = round(sum(mrr_vals) / len(mrr_vals), 4) if mrr_vals else 0
         summary["by_category"][cat] = cat_summary
 
-    # ── Print report ──
+    # -- Print report --
     print("=" * 60)
     print("RESULTS")
     print("=" * 60)
@@ -380,7 +380,7 @@ def run_benchmark(
         mrr = stats.get("mrr", 0)
         print(f"  {cat:25s} {stats['count']:6d} {r_k:8.4f} {mrr:8.4f}")
 
-    # ── Save results ──
+    # -- Save results --
     results_dir = Path(__file__).parent / "results"
     results_dir.mkdir(exist_ok=True)
 
@@ -402,9 +402,9 @@ def run_benchmark(
     return results, summary
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # CLI
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 def main():
     parser = argparse.ArgumentParser(

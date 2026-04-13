@@ -1,8 +1,8 @@
 """
-metrics.py — Benchmark metrics for Engram.
+metrics.py -- Benchmark metrics for Engram.
 
 Core metrics:
-- Recall@K: fraction of questions where ≥1 evidence doc appears in top-K
+- Recall@K: fraction of questions where >=1 evidence doc appears in top-K
 - NDCG@K: Normalized Discounted Cumulative Gain
 - Precision/Recall/F1 for classification tasks (quality gate, dedup, conflicts)
 - Per-category breakdown with failed question tracking
@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Retrieval Metrics
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 
 def recall_at_k(retrieved_ids: List[str], evidence_ids: Set[str], k: int) -> float:
@@ -128,9 +128,9 @@ def rank_of_first_hit(retrieved_ids: List[str], evidence_ids: Set[str]) -> Optio
     return None
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Classification Metrics (quality gate, dedup, conflicts)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 
 @dataclass
@@ -215,9 +215,9 @@ def per_class_accuracy(
     return result
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Aggregation & Reporting
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 
 @dataclass
@@ -340,9 +340,9 @@ def per_category_breakdown(
     return breakdown
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Formatting
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 
 def format_retrieval_table(
@@ -397,7 +397,7 @@ def format_category_table(
         if len(data["failed_ids"]) > 5:
             failed += f" (+{len(data['failed_ids']) - 5})"
         if not failed:
-            failed = "—"
+            failed = "--"
         lines.append(f"| {cat} | {count} | {recall} | {failed} |")
 
     return "\n".join(lines)
@@ -428,9 +428,9 @@ def format_classification_table(
     return "\n".join(lines)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 # Result Persistence (JSONL)
-# ═══════════════════════════════════════════════════════════════════════════
+# ===========================================================================
 
 
 def save_results_jsonl(results: List[RetrievalResult], filepath: Path) -> None:
