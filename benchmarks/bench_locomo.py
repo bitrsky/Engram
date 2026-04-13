@@ -147,6 +147,8 @@ def evaluate_conversation(
     sample: dict,
     k_values: List[int],
     use_rerank: bool = False,
+    think_fn=None,
+    query_rewrite: bool = False,
 ) -> List[dict]:
     """
     Evaluate Engram retrieval on all QA pairs from one LoCoMo conversation.
@@ -157,7 +159,9 @@ def evaluate_conversation(
     Args:
         sample: LoCoMo conversation sample
         k_values: K values for recall metrics
-        use_rerank: If True, use LLM reranking (requires LLM config)
+        use_rerank: If True, use LLM reranking (requires LLM config or think_fn)
+        think_fn: Optional LLM callback (see engram.llm.ThinkFn)
+        query_rewrite: If True, enable query rewrite (requires think_fn)
 
     Returns list of per-question result dicts.
     """
@@ -190,14 +194,29 @@ def evaluate_conversation(
         (engram_dir / "facts").mkdir()
         (engram_dir / ".index").mkdir()
 
+        # Build config YAML based on flags
+        config_lines = ["llm:", "  provider: none"]
+        if use_rerank:
+            config_lines.append("  rerank: true")
+            config_lines.append("  rerank_candidates: 20")
+        if query_rewrite:
+            config_lines.append("  query_rewrite: true")
         (engram_dir / "config.yaml").write_text(
-            "llm:\n  provider: none\n", encoding="utf-8"
+            "\n".join(config_lines) + "\n", encoding="utf-8"
         )
         (engram_dir / "identity.md").write_text(
             "---\nname: LoCoMo Bench\n---\n", encoding="utf-8"
         )
 
         config = EngramConfig(base_dir=str(engram_dir))
+
+        # Override rerank_enabled if think_fn provided (even when provider=none)
+        if think_fn and use_rerank:
+            # Force rerank on: provider is "none" so config.rerank_enabled=False,
+            # but we have think_fn so we manually set it via env override
+            import os
+            os.environ["ENGRAM_RERANK"] = "1"
+
         mgr = IndexManager(
             index_dir=config.index_dir,
             memories_dir=config.memories_dir,
@@ -240,14 +259,39 @@ def evaluate_conversation(
             if not evidence_session_ids:
                 continue
 
-            # Query
-            if use_rerank:
+            # Optional query rewrite via think_fn
+            search_query = question
+            if think_fn and query_rewrite:
+                try:
+                    from engram.llm import rewrite_query
+                    search_query = rewrite_query(question, think_fn)
+                except Exception:
+                    pass
+
+            # Query — use think_fn path when available
+            if think_fn and use_rerank:
+                from engram.rerank import rerank
+                # Stage 1: vector search for broad candidates
+                raw_hits = mgr.vector_search(query=search_query, n=20)
+                # Stage 2: LLM rerank via callback
+                if len(raw_hits) > max_k:
+                    hits = rerank(
+                        query=search_query,
+                        candidates=raw_hits,
+                        config=config,
+                        top_k=max_k,
+                        think_fn=think_fn,
+                    )
+                else:
+                    hits = raw_hits
+            elif use_rerank:
                 hits = mgr.vector_search_reranked(
-                    query=question, config=config, n=max_k,
+                    query=search_query, config=config, n=max_k,
                     candidates=config.rerank_candidates,
                 )
             else:
-                hits = mgr.vector_search(query=question, n=max_k)
+                hits = mgr.vector_search(query=search_query, n=max_k)
+
             retrieved_ids = [h.id for h in hits]
             retrieved_session_ids = [
                 memory_to_session.get(mid, mid) for mid in retrieved_ids
@@ -286,6 +330,11 @@ def evaluate_conversation(
             results.append(result)
 
         mgr.close()
+
+        # Clean up env override
+        if think_fn and use_rerank:
+            import os
+            os.environ.pop("ENGRAM_RERANK", None)
 
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)

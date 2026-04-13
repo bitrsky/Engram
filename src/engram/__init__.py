@@ -2,4 +2,4 @@
 
 __version__ = "0.1.0"
 
-from .llm import LLMCallback  # noqa: F401 (public API)
+from .llm import ThinkFn  # noqa: F401 (public API)

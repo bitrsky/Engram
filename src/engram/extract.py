@@ -3,16 +3,14 @@ extract.py — Fact extraction for Engram.
 
 Two modes:
 1. Heuristic: Regex-based pattern matching (always available, ~1-2 facts per text)
-2. LLM: AI-powered extraction (optional, ~5-7 facts per text)
+2. LLM: AI-powered extraction via callback (optional, ~5-7 facts per text)
 
-The LLM mode is the single most impactful AI integration point in the system.
-It uses urllib.request directly — no SDK dependencies.
+The host agent (e.g. echo-code) injects LLM capability via the think_fn callback.
+Engram never calls LLM APIs directly.
 """
 
 import json
 import re
-import urllib.request
-import urllib.error
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional, Dict
@@ -38,49 +36,38 @@ def extract_facts(
     project: str = None,
     existing_facts: List[Fact] = None,
     config: EngramConfig = None,
-    llm_fn=None,
+    think_fn=None,
 ) -> List[FactCandidate]:
     """
     Extract structured facts from text content.
 
-    Routes to LLM callback, legacy HTTP LLM, or heuristic.
-
     Priority:
-        1. llm_fn (external callback — preferred when host agent provides one)
-        2. Built-in HTTP LLM (legacy — for standalone CLI usage)
-        3. Heuristic regex patterns (always available)
+        1. think_fn callback (when host agent provides one)
+        2. Heuristic regex patterns (always available)
 
     Args:
         content: Text to extract facts from
         project: Project context (used in LLM prompt)
         existing_facts: Known facts (fed to LLM for conflict detection)
-        config: Configuration (for LLM settings)
-        llm_fn: Optional LLM callback (see engram.llm.LLMCallback)
+        config: Configuration
+        think_fn: Optional agent thinking function (see engram.llm.ThinkFn)
 
     Returns:
         List of FactCandidate objects
     """
     config = config or EngramConfig()
 
-    # Priority 1: External LLM callback
-    if llm_fn is not None:
+    # Priority 1: Agent thinking callback
+    if think_fn is not None:
         try:
             from .llm import extract_facts_via_callback
             return extract_facts_via_callback(
-                content, llm_fn, project=project, existing_facts=existing_facts,
+                content, think_fn, project=project, existing_facts=existing_facts,
             )
         except Exception:
-            pass  # Fall through to next option
+            pass  # Fall through to heuristic
 
-    # Priority 2: Built-in HTTP LLM (legacy)
-    if config.llm_available:
-        try:
-            return extract_facts_llm(content, project, existing_facts, config)
-        except Exception:
-            # LLM failed, fall back to heuristic
-            return extract_facts_heuristic(content, project)
-
-    # Priority 3: Heuristic
+    # Priority 2: Heuristic
     return extract_facts_heuristic(content, project)
 
 
@@ -417,201 +404,6 @@ def extract_facts_heuristic(content: str, project: str = None) -> List[FactCandi
             ))
 
     return facts
-
-
-def extract_facts_llm(
-    content: str,
-    project: str = None,
-    existing_facts: List[Fact] = None,
-    config: EngramConfig = None,
-) -> List[FactCandidate]:
-    """
-    Extract facts using LLM.
-
-    The prompt feeds in known facts so the LLM can:
-    1. Extract new facts
-    2. Detect conflicts with known facts (conflict detection for free)
-    3. Infer temporal information
-
-    Uses urllib.request directly — no SDK.
-
-    Cost estimate: ~$0.001 per call with Haiku/GPT-4o-mini
-    """
-    config = config or EngramConfig()
-
-    # Build the prompt
-    prompt = _build_extraction_prompt(content, project, existing_facts)
-
-    # Call LLM
-    response_text = _call_llm(prompt, config)
-    if not response_text:
-        return []
-
-    # Parse JSON response
-    return _parse_llm_response(response_text)
-
-
-def _build_extraction_prompt(
-    content: str,
-    project: str = None,
-    existing_facts: List[Fact] = None,
-) -> str:
-    """
-    Build the fact extraction prompt.
-
-    The prompt structure:
-    1. System instruction (extract facts as triples)
-    2. Known facts context (if available)
-    3. The content to analyze
-    4. Output format specification (JSON array)
-    """
-    known_facts_section = ""
-    if existing_facts:
-        facts_lines = []
-        for f in existing_facts[:20]:  # Limit to 20 to save tokens
-            facts_lines.append(f"  - {f.subject} → {f.predicate} → {f.object}")
-        known_facts_section = f"""
-Known facts about this project:
-{chr(10).join(facts_lines)}
-
-If any extracted fact contradicts a known fact above, note it in "conflicts_with".
-"""
-
-    return f"""Extract structured facts from the following text.
-
-Project context: {project or "(unknown)"}
-{known_facts_section}
-Text to analyze:
----
-{content}
----
-
-Extract ALL factual claims as (subject, predicate, object) triples.
-Include: decisions, assignments, technical choices, timelines, concerns, metrics, relationships.
-Skip: opinions about code quality, generic statements, pleasantries, hypotheticals.
-
-For each fact:
-- subject: the entity (person, project, component)
-- predicate: the relationship (uses, assigned_to, decided, status, etc.)
-- object: the value
-- confidence: 0.0-1.0 based on how certain this fact is from the text
-- temporal: ISO date or relative time phrase if present, empty string otherwise
-- conflicts_with: "subject → predicate → object" of a conflicting known fact, or empty string
-
-Output ONLY a valid JSON array, no markdown formatting:
-[
-  {{"subject": "...", "predicate": "...", "object": "...", "confidence": 0.9, "temporal": "", "conflicts_with": ""}}
-]"""
-
-
-def _call_llm(prompt: str, config: EngramConfig) -> Optional[str]:
-    """
-    Call LLM via HTTP API. Supports ollama, openai, anthropic.
-    Uses urllib.request — no SDK dependencies.
-
-    Returns: response text, or None on failure
-    """
-    provider = config.llm_provider
-
-    if provider == "none":
-        return None
-
-    if provider == "ollama":
-        return _call_ollama(prompt, config)
-    elif provider == "openai":
-        return _call_openai(prompt, config)
-    elif provider == "anthropic":
-        return _call_anthropic(prompt, config)
-
-    return None
-
-
-def _call_ollama(prompt: str, config: EngramConfig) -> Optional[str]:
-    """Call Ollama API at localhost:11434."""
-    base_url = config.llm_base_url or "http://localhost:11434"
-    url = f"{base_url}/api/generate"
-    payload = {
-        "model": config.llm_model,
-        "prompt": prompt,
-        "stream": False,
-        "options": {"temperature": 0.1},  # Low temp for structured extraction
-    }
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            return body.get("response", "")
-    except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError,
-            ValueError, KeyError):
-        return None
-
-
-def _call_openai(prompt: str, config: EngramConfig) -> Optional[str]:
-    """Call OpenAI-compatible API."""
-    base_url = config.llm_base_url or "https://api.openai.com"
-    url = f"{base_url}/v1/chat/completions"
-    payload = {
-        "model": config.llm_model,
-        "messages": [
-            {"role": "system", "content": "You are a fact extraction engine. Output only valid JSON."},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.1,
-    }
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {config.llm_api_key}",
-    }
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            choices = body.get("choices", [])
-            if choices:
-                return choices[0].get("message", {}).get("content", "")
-            return None
-    except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError,
-            ValueError, KeyError):
-        return None
-
-
-def _call_anthropic(prompt: str, config: EngramConfig) -> Optional[str]:
-    """Call Anthropic API."""
-    base_url = config.llm_base_url or "https://api.anthropic.com"
-    url = f"{base_url}/v1/messages"
-    payload = {
-        "model": config.llm_model,
-        "max_tokens": 1024,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.1,
-    }
-    headers = {
-        "Content-Type": "application/json",
-        "x-api-key": config.llm_api_key,
-        "anthropic-version": "2023-06-01",
-    }
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            content_blocks = body.get("content", [])
-            if content_blocks:
-                # Anthropic returns an array of content blocks; grab first text block
-                for block in content_blocks:
-                    if isinstance(block, dict) and block.get("type") == "text":
-                        return block.get("text", "")
-            return None
-    except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError,
-            ValueError, KeyError):
-        return None
 
 
 def _parse_llm_response(response_text: str) -> List[FactCandidate]:

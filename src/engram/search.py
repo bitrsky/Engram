@@ -50,16 +50,16 @@ def search(
     include_facts: bool = True,
     include_conflicts: bool = True,
     config: EngramConfig = None,
-    llm_fn=None,
+    think_fn=None,
 ) -> SearchResults:
     """
     Perform semantic search with fact and conflict enrichment.
 
     Flow:
-    1. Query rewrite (optional, via llm_fn)
-    2. Vector search via IndexManager (with optional LLM reranking)
+    1. Query rewrite (optional, via think_fn)
+    2. Vector search via IndexManager (with optional reranking)
     3. Update access stats for each hit
-    4. Temporal reasoning (optional, via llm_fn)
+    4. Temporal reasoning (optional, via think_fn)
     5. For each hit, find related facts (by extracting entities from content)
     6. Check for unresolved conflicts
     7. Assemble enriched results
@@ -74,7 +74,7 @@ def search(
         include_facts: Whether to enrich with related facts
         include_conflicts: Whether to check for conflicts
         config: Configuration
-        llm_fn: Optional LLM callback (see engram.llm.LLMCallback)
+        think_fn: Optional agent thinking function (see engram.llm.ThinkFn)
 
     Returns:
         SearchResults with enriched hits
@@ -83,14 +83,14 @@ def search(
 
     # Step 0: Query rewrite (optional)
     original_query = query
-    if llm_fn is not None and config.query_rewrite_enabled:
+    if think_fn is not None and config.query_rewrite_enabled:
         try:
             from .llm import rewrite_query
-            query = rewrite_query(query, llm_fn)
+            query = rewrite_query(query, think_fn)
         except Exception:
             pass  # Use original query
 
-    # Step 1: Vector search (with optional LLM reranking)
+    # Step 1: Vector search (with optional reranking)
     if config.rerank_enabled:
         raw_hits = index_manager.vector_search_reranked(
             query=query,
@@ -99,7 +99,7 @@ def search(
             topics=topics,
             memory_type=memory_type,
             n=n,
-            llm_fn=llm_fn,
+            think_fn=think_fn,
         )
     else:
         raw_hits = index_manager.vector_search(
@@ -119,10 +119,10 @@ def search(
 
     # Step 2.5: Temporal reasoning (optional)
     temporal_answer = None
-    if llm_fn is not None and config.temporal_reasoning_enabled and raw_hits:
+    if think_fn is not None and config.temporal_reasoning_enabled and raw_hits:
         try:
             from .llm import answer_temporal
-            temporal_answer = answer_temporal(original_query, raw_hits, llm_fn)
+            temporal_answer = answer_temporal(original_query, raw_hits, think_fn)
         except Exception:
             pass
 

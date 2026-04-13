@@ -69,7 +69,7 @@ def remember(
     skip_quality_check: bool = False,
     skip_dedup: bool = False,
     skip_facts: bool = False,
-    llm_fn=None,
+    think_fn=None,
 ) -> RememberResult:
     """
     Run the complete remember pipeline.
@@ -204,7 +204,7 @@ def remember(
                 memory_id=memory_id,
                 config=config,
                 result=result,
-                llm_fn=llm_fn,
+                think_fn=think_fn,
             )
 
         # ── Step 7: Update project last_active ───────────────────────────
@@ -304,7 +304,7 @@ def _extract_and_add_facts(
     memory_id: str,
     config: EngramConfig,
     result: RememberResult,
-    llm_fn=None,
+    think_fn=None,
 ) -> None:
     """
     Steps 5–6: extract facts from *content* and add them to the project
@@ -321,7 +321,7 @@ def _extract_and_add_facts(
             project=project,
             existing_facts=existing_facts,
             config=config,
-            llm_fn=llm_fn,
+            think_fn=think_fn,
         )
         result.facts_extracted = len(candidates)
 

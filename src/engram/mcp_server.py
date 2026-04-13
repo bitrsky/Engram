@@ -46,25 +46,26 @@ mcp = FastMCP("engram")
 
 _config: EngramConfig | None = None
 _stack: MemoryStack | None = None
-_llm_fn = None
+_think_fn = None
 
 
-def set_llm_callback(fn) -> None:
-    """Inject an LLM callback to upgrade engram's search/extraction capabilities.
+def set_think_fn(fn) -> None:
+    """Inject an agent thinking function to upgrade engram's capabilities.
 
-    When set, engram will use this callback instead of making its own HTTP
-    calls to LLM providers.  This is the preferred integration path when
-    engram runs inside an AI agent (e.g. echo-code) that already has LLM access.
+    When set, engram will use this function for search reranking, query
+    rewriting, temporal reasoning, and fact extraction.  This is the
+    preferred integration path when engram runs inside an AI agent
+    (e.g. echo-code) that already has inference capability.
 
     Args:
-        fn: A callable matching the LLMCallback protocol::
+        fn: A callable matching the ThinkFn protocol::
 
-                def my_llm(prompt: str, system: str = "", **kwargs) -> str | None:
+                def my_think(prompt: str, system: str = "", **kwargs) -> str | None:
                     ...
     """
-    global _llm_fn, _stack
-    _llm_fn = fn
-    # Reset stack so it gets rebuilt with the new llm_fn
+    global _think_fn, _stack
+    _think_fn = fn
+    # Reset stack so it gets rebuilt with the new think_fn
     if _stack is not None:
         _stack.close()
         _stack = None
@@ -80,7 +81,7 @@ def _get_config() -> EngramConfig:
 def _get_stack() -> MemoryStack:
     global _stack
     if _stack is None:
-        _stack = MemoryStack(_get_config(), llm_fn=_llm_fn)
+        _stack = MemoryStack(_get_config(), think_fn=_think_fn)
     return _stack
 
 
@@ -134,7 +135,7 @@ def engram_search(
             topics=topic_list,
             n=n,
             config=config,
-            llm_fn=_llm_fn,
+            think_fn=_think_fn,
         )
 
         return format_search_results(results)
@@ -427,7 +428,7 @@ def engram_remember(
             memory_type=memory_type,
             source=source,
             config=config,
-            llm_fn=_llm_fn,
+            think_fn=_think_fn,
         )
 
         if not result.success:

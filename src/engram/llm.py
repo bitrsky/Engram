@@ -1,14 +1,13 @@
 """
-llm.py — LLM callback protocol and prompt builders for Engram.
+llm.py — Agent thinking protocol and prompt builders for Engram.
 
-Engram does NOT call LLM APIs directly. Instead, it defines a callback protocol
+Engram does NOT call LLM APIs directly. Instead, it defines a ThinkFn protocol
 that the host agent (e.g. echo-code) injects. Each function in this module:
   1. Builds a prompt
-  2. Calls the injected llm_fn
+  2. Calls the injected think_fn
   3. Parses the response
 
-When no llm_fn is provided, the legacy HTTP-based providers in extract.py
-and rerank.py are used as a fallback (for standalone CLI usage).
+When no think_fn is provided, Engram falls back to heuristic-only mode.
 """
 
 from __future__ import annotations
@@ -25,21 +24,22 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# LLM Callback Protocol
+# ThinkFn Protocol
 # ═══════════════════════════════════════════════════════════════════════════
 
 
 @runtime_checkable
-class LLMCallback(Protocol):
-    """Protocol for LLM invocation.
+class ThinkFn(Protocol):
+    """Protocol for agent thinking/inference capability.
 
-    The host agent provides an implementation that sends the prompt to
-    whichever model it is using.  Engram only cares about the interface::
+    The host agent (e.g. echo-code) provides an implementation that
+    processes a prompt and returns a response.  Engram only cares
+    about the interface::
 
-        def my_llm(prompt: str, system: str = "", **kwargs) -> Optional[str]:
-            return call_my_model(prompt, system_message=system)
+        def my_think(prompt: str, system: str = "", **kwargs) -> Optional[str]:
+            return agent.prompt_collect(prompt)
 
-        stack = MemoryStack(config=cfg, llm_fn=my_llm)
+        stack = MemoryStack(config=cfg, think_fn=my_think)
 
     Keyword arguments (``**kwargs``) may include:
         temperature (float): Sampling temperature.
@@ -77,22 +77,22 @@ Rules:
 - Output ONLY the expanded query, nothing else"""
 
 
-def rewrite_query(query: str, llm_fn: LLMCallback) -> str:
-    """Rewrite a vague query into a more specific search query using LLM.
+def rewrite_query(query: str, think_fn: ThinkFn) -> str:
+    """Rewrite a vague query into a more specific search query.
 
     Args:
         query: The original user query.
-        llm_fn: LLM callback function.
+        think_fn: Agent thinking function.
 
     Returns:
         Expanded query string, or the original query on failure.
     """
     prompt = _REWRITE_PROMPT.format(query=query)
     try:
-        result = llm_fn(prompt, system=_REWRITE_SYSTEM, temperature=0.0, max_tokens=128)
+        result = think_fn(prompt, system=_REWRITE_SYSTEM, temperature=0.0, max_tokens=128)
         if result and result.strip():
             expanded = result.strip().strip('"').strip("'")
-            # Sanity: if the LLM returned something wildly different or too long, skip
+            # Sanity: if the response is wildly different or too long, skip
             if len(expanded) > 500 or len(expanded) < 3:
                 return query
             return expanded
@@ -117,15 +117,15 @@ _MAX_DOC_CHARS = 300
 def rerank_with_llm(
     query: str,
     candidates: list,
-    llm_fn: LLMCallback,
+    think_fn: ThinkFn,
     top_k: int = 5,
 ) -> list:
-    """Rerank search candidates using the LLM callback.
+    """Rerank search candidates using agent thinking.
 
     Args:
         query: The user's search query.
         candidates: List of SearchHit objects from vector_search().
-        llm_fn: LLM callback function.
+        think_fn: Agent thinking function.
         top_k: Number of results to return.
 
     Returns:
@@ -155,9 +155,9 @@ def rerank_with_llm(
     )
 
     try:
-        response = llm_fn(prompt, system=_RERANK_SYSTEM, temperature=0.0, max_tokens=256)
+        response = think_fn(prompt, system=_RERANK_SYSTEM, temperature=0.0, max_tokens=256)
     except Exception as exc:
-        logger.debug("Rerank LLM call failed: %s", exc)
+        logger.debug("Rerank call failed: %s", exc)
         return candidates[:top_k]
 
     if not response:
@@ -193,7 +193,7 @@ def rerank_with_llm(
 def _parse_rerank_indices(
     response: str, n_candidates: int, top_k: int
 ) -> Optional[List[int]]:
-    """Parse LLM rerank response into 0-based indices.
+    """Parse rerank response into 0-based indices.
 
     Handles JSON arrays, markdown-wrapped JSON, and plain numbers.
     """
@@ -275,14 +275,14 @@ def is_temporal_query(query: str) -> bool:
 def answer_temporal(
     query: str,
     hits: list,
-    llm_fn: LLMCallback,
+    think_fn: ThinkFn,
 ) -> Optional[str]:
-    """Use LLM to reason about a time-related question.
+    """Reason about a time-related question.
 
     Args:
         query: The user's temporal question.
         hits: Search hits with content and timestamps.
-        llm_fn: LLM callback function.
+        think_fn: Agent thinking function.
 
     Returns:
         An answer string, or None if reasoning fails or query is not temporal.
@@ -308,7 +308,7 @@ def answer_temporal(
     prompt = _TEMPORAL_PROMPT.format(query=query, context=context)
 
     try:
-        result = llm_fn(prompt, system=_TEMPORAL_SYSTEM, temperature=0.0, max_tokens=256)
+        result = think_fn(prompt, system=_TEMPORAL_SYSTEM, temperature=0.0, max_tokens=256)
         if result and result.strip():
             answer = result.strip()
             if "unable to determine" in answer.lower():
@@ -356,15 +356,15 @@ Output ONLY a valid JSON array, no markdown formatting:
 
 def extract_facts_via_callback(
     content: str,
-    llm_fn: LLMCallback,
+    think_fn: ThinkFn,
     project: str = None,
     existing_facts: list = None,
 ) -> list:
-    """Extract facts using the LLM callback.
+    """Extract facts using agent thinking.
 
     Args:
         content: Text to extract facts from.
-        llm_fn: LLM callback function.
+        think_fn: Agent thinking function.
         project: Project context.
         existing_facts: Known facts for conflict detection.
 
@@ -393,7 +393,7 @@ def extract_facts_via_callback(
     )
 
     try:
-        response = llm_fn(prompt, system=_EXTRACT_SYSTEM, temperature=0.1, max_tokens=1024)
+        response = think_fn(prompt, system=_EXTRACT_SYSTEM, temperature=0.1, max_tokens=1024)
         if response:
             return _parse_llm_response(response)
     except Exception as exc:

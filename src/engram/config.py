@@ -17,17 +17,6 @@ import yaml
 
 DEFAULT_BASE_DIR = os.path.expanduser("~/.engram")
 
-# ── Default LLM model per provider ──────────────────────────────────────────
-_DEFAULT_MODELS: Dict[str, str] = {
-    "ollama": "llama3.2",
-    "openai": "gpt-4o-mini",
-    "anthropic": "claude-haiku",
-}
-
-_DEFAULT_BASE_URLS: Dict[str, str] = {
-    "ollama": "http://localhost:11434",
-}
-
 # ── Exclusive predicates (scope = "subject" means one value per subject) ────
 _DEFAULT_EXCLUSIVE_PREDICATES: Dict[str, str] = {
     "uses_database": "subject",
@@ -55,15 +44,11 @@ _DEFAULT_CONFIG_YAML = """\
 # ─────────────────────────────────────────────────────────────────────────────
 # Priority: environment variables > this file > built-in defaults.
 
-# ── LLM Provider ────────────────────────────────────────────────────────────
-# Supported: "ollama", "openai", "anthropic", "none"
-# Override with env var ENGRAM_LLM_PROVIDER
+# ── LLM features ────────────────────────────────────────────────────────────
+# LLM capability is injected by the host agent via think_fn callback.
+# These toggles control which LLM features are enabled.
 llm:
-  provider: "none"
-  # model: "llama3.2"            # default depends on provider
-  # api_key: ""                  # or set ENGRAM_LLM_API_KEY
-  # base_url: ""                 # ollama default: http://localhost:11434
-  # rerank: true                 # enable LLM reranking (default: true when LLM available)
+  # rerank: true                 # enable LLM reranking (default: true when think_fn provided)
   # rerank_candidates: 20        # number of vector candidates to rerank
   # query_rewrite: false          # rewrite vague queries before search (adds ~200ms)
   # temporal_reasoning: true      # LLM reasoning for time-related questions
@@ -122,15 +107,11 @@ class EngramConfig:
         identity_path — ~/.engram/identity.md
         config_path   — ~/.engram/config.yaml
 
-    LLM config:
-        llm_provider  -- "ollama" | "openai" | "anthropic" | "none" (default: "none")
-        llm_model     -- model name (default depends on provider)
-        llm_api_key   -- API key (from config or env var ENGRAM_LLM_API_KEY)
-        llm_base_url  -- Base URL for API (ollama default: http://localhost:11434)
-
-    Rerank config:
-        rerank_enabled    -- True when LLM available and not disabled (default: True)
-        rerank_candidates -- How many vector candidates to rerank (default: 20)
+    LLM feature toggles:
+        rerank_enabled           -- enable LLM reranking (default: True)
+        rerank_candidates        -- how many vector candidates to rerank (default: 20)
+        query_rewrite_enabled    -- expand queries before search (default: False)
+        temporal_reasoning_enabled -- LLM time reasoning (default: True)
     """
 
     def __init__(self, base_dir=None):
@@ -181,54 +162,11 @@ class EngramConfig:
     def config_path(self) -> Path:
         return self._config_path
 
-    # ── LLM config properties ──────────────────────────────────────────────
+    # ── LLM feature toggles ────────────────────────────────────────────────
 
     def _llm_section(self) -> dict:
         """Return the ``llm:`` section of the config (may be empty)."""
         return self._config.get("llm", {}) or {}
-
-    @property
-    def llm_provider(self) -> str:
-        """Get LLM provider.  Env var ENGRAM_LLM_PROVIDER overrides config."""
-        env_val = os.environ.get("ENGRAM_LLM_PROVIDER")
-        if env_val:
-            return env_val.lower().strip()
-        return str(self._llm_section().get("provider", "none")).lower().strip()
-
-    @property
-    def llm_model(self) -> str:
-        """Get LLM model name.  Defaults based on provider."""
-        env_val = os.environ.get("ENGRAM_LLM_MODEL")
-        if env_val:
-            return env_val.strip()
-        configured = self._llm_section().get("model")
-        if configured:
-            return str(configured).strip()
-        return _DEFAULT_MODELS.get(self.llm_provider, "")
-
-    @property
-    def llm_api_key(self) -> str:
-        """Get API key.  Env var ENGRAM_LLM_API_KEY overrides config."""
-        env_val = os.environ.get("ENGRAM_LLM_API_KEY")
-        if env_val:
-            return env_val
-        return str(self._llm_section().get("api_key", ""))
-
-    @property
-    def llm_base_url(self) -> str:
-        """Get base URL for LLM API."""
-        env_val = os.environ.get("ENGRAM_LLM_BASE_URL")
-        if env_val:
-            return env_val.rstrip("/")
-        configured = self._llm_section().get("base_url")
-        if configured:
-            return str(configured).rstrip("/")
-        return _DEFAULT_BASE_URLS.get(self.llm_provider, "")
-
-    @property
-    def llm_available(self) -> bool:
-        """True if an LLM provider is configured and not 'none'."""
-        return self.llm_provider not in ("none", "")
 
     # ── Rerank config properties ─────────────────────────────────────────────
 
@@ -237,18 +175,18 @@ class EngramConfig:
         """
         True if LLM reranking is enabled.
 
-        Requires LLM to be available. Can be explicitly disabled with
-        ``llm.rerank: false`` in config or env var ENGRAM_RERANK=0.
+        Can be explicitly disabled with ``llm.rerank: false`` in config
+        or env var ENGRAM_RERANK=0.  Default: True.
+
+        Note: actual reranking only happens when a think_fn callback is
+        provided at runtime.
         """
         env_val = os.environ.get("ENGRAM_RERANK")
         if env_val is not None:
             return env_val.strip().lower() not in ("0", "false", "no", "off")
-        if not self.llm_available:
-            return False
         configured = self._llm_section().get("rerank")
         if configured is not None:
             return bool(configured)
-        # Default: enabled when LLM is available
         return True
 
     @property
@@ -305,7 +243,7 @@ class EngramConfig:
         and durations from memory timestamps.  Only triggers when temporal
         markers are detected in the query (low cost gate).
 
-        Default: True when LLM is available or llm_fn is provided.
+        Default: True when think_fn is provided.
         Override with ``llm.temporal_reasoning: false`` in config
         or env var ENGRAM_TEMPORAL_REASONING=0.
         """
@@ -414,10 +352,7 @@ class EngramConfig:
     # ── Dunder helpers ──────────────────────────────────────────────────────
 
     def __repr__(self) -> str:
-        return (
-            f"EngramConfig(base_dir={str(self._base_dir)!r}, "
-            f"provider={self.llm_provider!r})"
-        )
+        return f"EngramConfig(base_dir={str(self._base_dir)!r})"
 
 
 # ── Module-level helpers ────────────────────────────────────────────────────

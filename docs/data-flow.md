@@ -469,47 +469,38 @@ Engram 维护两个派生索引，各司其职：
 
 ## 7. LLM 集成点
 
-Engram 的 LLM 调用全部通过 `urllib.request` 原生 HTTP 实现，**零 SDK 依赖**。
+Engram 不直接调用 LLM API。LLM 能力通过 `llm_fn` 回调由宿主 agent（如 echo-code）注入。
 
-### 7.1 支持的 Provider
+详见 [llm-integration.md](./llm-integration.md)。
 
-| Provider | 默认模型 | 默认 Base URL | 认证方式 |
-|---|---|---|---|
-| `ollama` | llama3.2 | `http://localhost:11434` | 无需认证 |
-| `openai` | gpt-4o-mini | `https://api.openai.com` | Bearer token |
-| `anthropic` | claude-haiku | `https://api.anthropic.com` | x-api-key header |
-| `none` | — | — | LLM 禁用（默认） |
-
-### 7.2 集成点一览
+### 7.1 集成点一览
 
 | 集成点 | 模块 | 调用时机 | 失败行为 |
 |---|---|---|---|
-| **事实提取** | `extract.py` | `remember()` Step 5（写入时） | 回退到启发式正则提取 |
-| **搜索重排** | `rerank.py` | `search()` Step 1（读取时） | 回退到原始向量排序 |
+| **事实提取** | `extract.py` → `llm.py` | `remember()` 写入时 | 回退到启发式正则提取 |
+| **搜索重排** | `rerank.py` → `llm.py` | `search()` 读取时 | 回退到原始向量排序 |
+| **查询重写** | `llm.py` | `search()` 读取时 | 使用原始查询 |
+| **时间推理** | `llm.py` | `search()` 读取时 | 跳过 |
 
-### 7.3 配置
+### 7.2 配置
 
 ```yaml
 # ~/.engram/config.yaml
 llm:
-  provider: "ollama"          # ollama | openai | anthropic | none
-  model: "llama3.2"           # 默认取决于 provider
-  api_key: ""                 # 或设置 ENGRAM_LLM_API_KEY 环境变量
-  base_url: ""                # ollama 默认: http://localhost:11434
-  rerank: true                # 启用 LLM 重排 (默认: LLM 可用时 true)
+  rerank: true                # 启用 LLM 重排 (默认: true)
   rerank_candidates: 20       # 重排候选数量 (默认: 20)
+  query_rewrite: false         # 查询重写 (默认: false, 增加延迟)
+  temporal_reasoning: true     # 时间推理 (默认: true)
 ```
 
 环境变量覆盖（优先级高于配置文件）：
 
 | 环境变量 | 对应配置 |
 |---|---|
-| `ENGRAM_LLM_PROVIDER` | `llm.provider` |
-| `ENGRAM_LLM_MODEL` | `llm.model` |
-| `ENGRAM_LLM_API_KEY` | `llm.api_key` |
-| `ENGRAM_LLM_BASE_URL` | `llm.base_url` |
 | `ENGRAM_RERANK` | `llm.rerank` (设为 `0`/`false` 禁用) |
 | `ENGRAM_RERANK_CANDIDATES` | `llm.rerank_candidates` |
+| `ENGRAM_QUERY_REWRITE` | `llm.query_rewrite` |
+| `ENGRAM_TEMPORAL_REASONING` | `llm.temporal_reasoning` |
 
 ---
 
@@ -681,7 +672,7 @@ llm:
 | Source of Truth | Markdown 文件 | 人类可读、可 Git 版本控制、不依赖任何数据库 |
 | 向量引擎 | ChromaDB (内置 all-MiniLM-L6-v2) | 零配置，自动 embedding，384 维 |
 | 元数据存储 | SQLite | 结构化查询、去重 hash 查找、访问计数 |
-| LLM 调用方式 | urllib.request 原生 HTTP | 零依赖，不需要 openai/anthropic SDK |
+| LLM 调用方式 | llm_fn 回调协议 | 宿主 agent 注入，零 SDK 依赖 |
 | 事实提取 | 启发式 + LLM 双模式 | 无 LLM 也能工作，有 LLM 更准 |
 | 冲突检测 | 4 类分类 + 自动解决 | 仅排他谓词触发冲突，大部分可自动解决 |
 | 去重策略 | 3 级 (hash→向量→合并判断) | 从精确到模糊，逐级放宽 |

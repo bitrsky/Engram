@@ -97,9 +97,8 @@ class TestConfig:
         assert config.facts_dir == engram_dir / "facts"
         assert config.index_dir == engram_dir / ".index"
 
-    def test_llm_default_none(self, config):
-        assert config.llm_provider == "none"
-        assert config.llm_available is False
+    def test_rerank_enabled_default(self, config):
+        assert config.rerank_enabled is True
 
 
 class TestStore:

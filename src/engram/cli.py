@@ -574,8 +574,6 @@ def cmd_status(args):
 
     # LLM config
     print()
-    print(f"  LLM provider: {config.llm_provider}")
-    if config.llm_available:
-        print(f"  LLM model:    {config.llm_model}")
+    print(f"  LLM: via think_fn callback (host agent provides)")
 
     return 0
