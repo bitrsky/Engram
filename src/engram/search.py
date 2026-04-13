@@ -50,16 +50,19 @@ def search(
     include_facts: bool = True,
     include_conflicts: bool = True,
     config: EngramConfig = None,
+    llm_fn=None,
 ) -> SearchResults:
     """
     Perform semantic search with fact and conflict enrichment.
 
     Flow:
-    1. Vector search via IndexManager
-    2. Update access stats for each hit
-    3. For each hit, find related facts (by extracting entities from content)
-    4. Check for unresolved conflicts
-    5. Assemble enriched results
+    1. Query rewrite (optional, via llm_fn)
+    2. Vector search via IndexManager (with optional LLM reranking)
+    3. Update access stats for each hit
+    4. Temporal reasoning (optional, via llm_fn)
+    5. For each hit, find related facts (by extracting entities from content)
+    6. Check for unresolved conflicts
+    7. Assemble enriched results
 
     Args:
         query: Search query text
@@ -71,11 +74,21 @@ def search(
         include_facts: Whether to enrich with related facts
         include_conflicts: Whether to check for conflicts
         config: Configuration
+        llm_fn: Optional LLM callback (see engram.llm.LLMCallback)
 
     Returns:
         SearchResults with enriched hits
     """
     config = config or EngramConfig()
+
+    # Step 0: Query rewrite (optional)
+    original_query = query
+    if llm_fn is not None and config.query_rewrite_enabled:
+        try:
+            from .llm import rewrite_query
+            query = rewrite_query(query, llm_fn)
+        except Exception:
+            pass  # Use original query
 
     # Step 1: Vector search (with optional LLM reranking)
     if config.rerank_enabled:
@@ -86,6 +99,7 @@ def search(
             topics=topics,
             memory_type=memory_type,
             n=n,
+            llm_fn=llm_fn,
         )
     else:
         raw_hits = index_manager.vector_search(
@@ -102,6 +116,15 @@ def search(
             index_manager.update_access_stats(hit.id)
         except Exception:
             pass  # Non-critical
+
+    # Step 2.5: Temporal reasoning (optional)
+    temporal_answer = None
+    if llm_fn is not None and config.temporal_reasoning_enabled and raw_hits:
+        try:
+            from .llm import answer_temporal
+            temporal_answer = answer_temporal(original_query, raw_hits, llm_fn)
+        except Exception:
+            pass
 
     # Step 3: Enrich with facts
     enriched = []
@@ -127,6 +150,13 @@ def search(
             total_facts += len(related)
 
         enriched.append(enriched_hit)
+
+    # Attach temporal reasoning answer to first hit (if available)
+    if temporal_answer and enriched:
+        enriched[0].content = (
+            enriched[0].content.rstrip()
+            + f"\n\n[Temporal Reasoning]\n{temporal_answer}"
+        )
 
     # Step 4: Check conflicts
     total_conflicts = 0

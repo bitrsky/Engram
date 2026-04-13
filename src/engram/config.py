@@ -65,6 +65,8 @@ llm:
   # base_url: ""                 # ollama default: http://localhost:11434
   # rerank: true                 # enable LLM reranking (default: true when LLM available)
   # rerank_candidates: 20        # number of vector candidates to rerank
+  # query_rewrite: false          # rewrite vague queries before search (adds ~200ms)
+  # temporal_reasoning: true      # LLM reasoning for time-related questions
 
 # ── Exclusive predicates ────────────────────────────────────────────────────
 # Predicates listed here trigger conflict detection: when a new fact is filed
@@ -270,6 +272,51 @@ class EngramConfig:
             except (ValueError, TypeError):
                 pass
         return 20
+
+    # ── Query rewrite config ─────────────────────────────────────────────────
+
+    @property
+    def query_rewrite_enabled(self) -> bool:
+        """
+        True if LLM query rewrite is enabled.
+
+        Rewrites vague queries into more specific search terms before
+        vector search.  Adds ~200ms latency per search.
+
+        Default: False (opt-in).  Override with ``llm.query_rewrite: true``
+        in config or env var ENGRAM_QUERY_REWRITE=1.
+        """
+        env_val = os.environ.get("ENGRAM_QUERY_REWRITE")
+        if env_val is not None:
+            return env_val.strip().lower() in ("1", "true", "yes", "on")
+        configured = self._llm_section().get("query_rewrite")
+        if configured is not None:
+            return bool(configured)
+        return False
+
+    # ── Temporal reasoning config ────────────────────────────────────────────
+
+    @property
+    def temporal_reasoning_enabled(self) -> bool:
+        """
+        True if LLM temporal reasoning is enabled.
+
+        Detects time-related questions and uses LLM to reason about dates
+        and durations from memory timestamps.  Only triggers when temporal
+        markers are detected in the query (low cost gate).
+
+        Default: True when LLM is available or llm_fn is provided.
+        Override with ``llm.temporal_reasoning: false`` in config
+        or env var ENGRAM_TEMPORAL_REASONING=0.
+        """
+        env_val = os.environ.get("ENGRAM_TEMPORAL_REASONING")
+        if env_val is not None:
+            return env_val.strip().lower() not in ("0", "false", "no", "off")
+        configured = self._llm_section().get("temporal_reasoning")
+        if configured is not None:
+            return bool(configured)
+        # Default: enabled (actual gating is done by temporal marker detection)
+        return True
 
     # ── Exclusive predicates ────────────────────────────────────────────────
 

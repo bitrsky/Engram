@@ -487,6 +487,7 @@ class IndexManager:
         memory_type: str = None,
         n: int = 5,
         candidates: int = 0,
+        llm_fn=None,
     ) -> List[SearchHit]:
         """
         Two-stage search: vector retrieve top candidates, then LLM rerank to top n.
@@ -501,6 +502,7 @@ class IndexManager:
             memory_type: Filter by type
             n: Final number of results after reranking
             candidates: Number of candidates to fetch (0 = use config default)
+            llm_fn: Optional LLM callback (see engram.llm.LLMCallback)
         """
         from .rerank import rerank
 
@@ -530,6 +532,7 @@ class IndexManager:
             candidates=raw_hits,
             config=config,
             top_k=n,
+            llm_fn=llm_fn,
         )
 
     # ------------------------------------------------------------------

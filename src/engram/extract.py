@@ -38,28 +38,49 @@ def extract_facts(
     project: str = None,
     existing_facts: List[Fact] = None,
     config: EngramConfig = None,
+    llm_fn=None,
 ) -> List[FactCandidate]:
     """
     Extract structured facts from text content.
 
-    Routes to LLM or heuristic based on config.
+    Routes to LLM callback, legacy HTTP LLM, or heuristic.
+
+    Priority:
+        1. llm_fn (external callback — preferred when host agent provides one)
+        2. Built-in HTTP LLM (legacy — for standalone CLI usage)
+        3. Heuristic regex patterns (always available)
 
     Args:
         content: Text to extract facts from
         project: Project context (used in LLM prompt)
         existing_facts: Known facts (fed to LLM for conflict detection)
         config: Configuration (for LLM settings)
+        llm_fn: Optional LLM callback (see engram.llm.LLMCallback)
 
     Returns:
         List of FactCandidate objects
     """
     config = config or EngramConfig()
+
+    # Priority 1: External LLM callback
+    if llm_fn is not None:
+        try:
+            from .llm import extract_facts_via_callback
+            return extract_facts_via_callback(
+                content, llm_fn, project=project, existing_facts=existing_facts,
+            )
+        except Exception:
+            pass  # Fall through to next option
+
+    # Priority 2: Built-in HTTP LLM (legacy)
     if config.llm_available:
         try:
             return extract_facts_llm(content, project, existing_facts, config)
         except Exception:
             # LLM failed, fall back to heuristic
             return extract_facts_heuristic(content, project)
+
+    # Priority 3: Heuristic
     return extract_facts_heuristic(content, project)
 
 

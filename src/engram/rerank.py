@@ -34,15 +34,22 @@ def rerank(
     candidates: list,
     config: EngramConfig,
     top_k: int = 5,
+    llm_fn=None,
 ) -> list:
     """
     Rerank search candidates using LLM.
+
+    Priority:
+        1. llm_fn (external callback — preferred when host agent provides one)
+        2. Built-in HTTP LLM (legacy — for standalone CLI usage)
+        3. No reranking (return original vector order)
 
     Args:
         query: The user's search query.
         candidates: List of SearchHit objects from vector_search().
         config: EngramConfig (must have LLM configured).
         top_k: Number of results to return after reranking.
+        llm_fn: Optional LLM callback (see engram.llm.LLMCallback).
 
     Returns:
         Reranked list of SearchHit objects (length <= top_k).
@@ -54,6 +61,16 @@ def rerank(
     if not config.rerank_enabled:
         return candidates[:top_k]
 
+    # Priority 1: External LLM callback
+    if llm_fn is not None:
+        try:
+            from .llm import rerank_with_llm
+            return rerank_with_llm(query, candidates, llm_fn, top_k)
+        except Exception as exc:
+            logger.debug("Rerank via callback failed: %s, falling back", exc)
+            return candidates[:top_k]
+
+    # Priority 2: Built-in HTTP LLM (legacy)
     # Build the prompt
     prompt = _build_rerank_prompt(query, candidates, top_k)
 

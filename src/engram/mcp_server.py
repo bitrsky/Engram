@@ -46,6 +46,28 @@ mcp = FastMCP("engram")
 
 _config: EngramConfig | None = None
 _stack: MemoryStack | None = None
+_llm_fn = None
+
+
+def set_llm_callback(fn) -> None:
+    """Inject an LLM callback to upgrade engram's search/extraction capabilities.
+
+    When set, engram will use this callback instead of making its own HTTP
+    calls to LLM providers.  This is the preferred integration path when
+    engram runs inside an AI agent (e.g. echo-code) that already has LLM access.
+
+    Args:
+        fn: A callable matching the LLMCallback protocol::
+
+                def my_llm(prompt: str, system: str = "", **kwargs) -> str | None:
+                    ...
+    """
+    global _llm_fn, _stack
+    _llm_fn = fn
+    # Reset stack so it gets rebuilt with the new llm_fn
+    if _stack is not None:
+        _stack.close()
+        _stack = None
 
 
 def _get_config() -> EngramConfig:
@@ -58,7 +80,7 @@ def _get_config() -> EngramConfig:
 def _get_stack() -> MemoryStack:
     global _stack
     if _stack is None:
-        _stack = MemoryStack(_get_config())
+        _stack = MemoryStack(_get_config(), llm_fn=_llm_fn)
     return _stack
 
 
@@ -112,6 +134,7 @@ def engram_search(
             topics=topic_list,
             n=n,
             config=config,
+            llm_fn=_llm_fn,
         )
 
         return format_search_results(results)
@@ -404,6 +427,7 @@ def engram_remember(
             memory_type=memory_type,
             source=source,
             config=config,
+            llm_fn=_llm_fn,
         )
 
         if not result.success:

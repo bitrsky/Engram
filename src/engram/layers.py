@@ -44,10 +44,18 @@ class MemoryStack:
 
         # Explicit search:
         results = stack.search("MongoDB performance tuning")
+
+    With LLM callback (preferred when hosted by an AI agent)::
+
+        def my_llm(prompt, system="", **kw):
+            return call_model(prompt, system_message=system)
+
+        stack = MemoryStack(config=cfg, llm_fn=my_llm)
     """
 
-    def __init__(self, config: EngramConfig = None):
+    def __init__(self, config: EngramConfig = None, llm_fn=None):
         self._config = config or EngramConfig()
+        self._llm_fn = llm_fn
         self._index: Optional[IndexManager] = None
         self._active_project: Optional[str] = None
 
@@ -322,6 +330,7 @@ class MemoryStack:
                     project=resolved,
                     topics=topics,
                     n=n,
+                    llm_fn=self._llm_fn,
                 )
             else:
                 hits = self.index.vector_search(
@@ -370,6 +379,7 @@ class MemoryStack:
                     project=project,
                     topics=topics,
                     n=n,
+                    llm_fn=self._llm_fn,
                 )
             else:
                 hits = self.index.vector_search(

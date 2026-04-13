@@ -238,6 +238,47 @@ class TestRerank:
         result = rerank("test", [], config, top_k=5)
         assert result == []
 
+    def test_rerank_with_llm_fn_callback(self):
+        """When llm_fn is provided, it should be used instead of HTTP calls."""
+        from engram.rerank import rerank
+
+        candidates = [
+            MockSearchHit(id="a", content="Document A"),
+            MockSearchHit(id="b", content="Document B"),
+            MockSearchHit(id="c", content="Document C"),
+        ]
+        config = MockConfig()
+
+        # llm_fn that returns reranked indices
+        def mock_llm(prompt, system="", **kwargs):
+            return "[2, 3, 1]"
+
+        result = rerank("test query", candidates, config, top_k=3, llm_fn=mock_llm)
+
+        assert len(result) == 3
+        assert result[0].id == "b"  # index 2 -> 0-based 1
+        assert result[1].id == "c"  # index 3 -> 0-based 2
+        assert result[2].id == "a"  # index 1 -> 0-based 0
+
+    def test_rerank_with_llm_fn_fallback_on_failure(self):
+        """When llm_fn fails, should fall back to original order."""
+        from engram.rerank import rerank
+
+        candidates = [
+            MockSearchHit(id="a", content="Doc A"),
+            MockSearchHit(id="b", content="Doc B"),
+        ]
+        config = MockConfig()
+
+        def failing_llm(prompt, system="", **kwargs):
+            raise RuntimeError("boom")
+
+        result = rerank("test", candidates, config, top_k=2, llm_fn=failing_llm)
+
+        assert len(result) == 2
+        assert result[0].id == "a"
+        assert result[1].id == "b"
+
 
 # ===========================================================================
 # Config tests
