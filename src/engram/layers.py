@@ -323,24 +323,14 @@ class MemoryStack:
                 projects_dir=self._config.projects_dir,
             )
 
-            # 2. Semantic search (with optional LLM reranking)
+            # 2. Semantic search
             topics = [topic] if topic else None
-            if self._config.rerank_enabled:
-                hits = self.index.vector_search_reranked(
-                    query=message,
-                    config=self._config,
-                    project=resolved,
-                    topics=topics,
-                    n=n,
-                    think_fn=self._think_fn,
-                )
-            else:
-                hits = self.index.vector_search(
-                    query=message,
-                    project=resolved,
-                    topics=topics,
-                    n=n,
-                )
+            hits = self.index.vector_search(
+                query=message,
+                project=resolved,
+                topics=topics,
+                n=n,
+            )
 
             if not hits:
                 return ""

@@ -48,12 +48,14 @@ engram conflicts
 
 ```
 ~/.engram/
-├── memories/          # One .md file per memory (with YAML frontmatter)
-├── projects/          # One .md file per project (registry)
-├── facts/             # One .md file per project (structured knowledge graph)
-├── identity.md        # L0 — who am I?
-├── config.yaml        # Configuration
-└── .index/            # Derived indexes (deletable, rebuildable)
+├── memories/              # One .md file per memory (with YAML frontmatter)
+├── projects/              # One .md file per project (registry)
+├── facts/                 # One .md file per project (structured knowledge graph)
+├── identity.md            # L0 — who am I?
+├── config.toml            # Configuration (TOML format)
+├── patterns.toml          # User-defined quality/conflict patterns (optional)
+├── learned_patterns.toml  # Auto-discovered patterns from usage (auto-managed)
+└── .index/                # Derived indexes (deletable, rebuildable)
     ├── vectors.chroma/    # ChromaDB semantic search
     └── meta.sqlite3       # SQLite structured queries
 ```
@@ -70,9 +72,10 @@ engram conflicts
 ## Write Pipeline
 
 ```
-Content → Quality Gate → Dedup → Write .md → Update Index → Extract Facts → Conflict Detection
-                                    ↑                              ↑
-                              Source of Truth               LLM (optional, $3/year)
+Content → Quality Gate → Dedup → Write .md → Update Index → Extract Facts → Conflict Detection → Pattern Learning
+                                    ↑                              ↑                                    ↑
+                              Source of Truth               LLM (optional)                   Observes LLM output
+                                                                                             (zero extra LLM calls)
 ```
 
 ## MCP Integration
@@ -111,16 +114,49 @@ python -m benchmarks.bench_locomo                      # LoCoMo (auto-downloads)
 
 See [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for detailed results and methodology.
 
+## Adaptive Pattern Learning
+
+Engram automatically learns your language patterns — no extra LLM calls required.
+
+**How it works:** When the LLM extracts a fact (e.g. predicate=`decision`) but the heuristic quality gate didn't match any pattern in the original text, Engram extracts the keywords that led to that fact and stores them as candidates. After seeing the same keyword **2 times** (configurable), it promotes to an active pattern.
+
+```
+Week 1: "我们决定用 PostgreSQL"  → LLM: decision ✅  Pattern: ❌  → candidate "决定" (1 hit)
+Week 2: "决定用 Redis 做缓存"    → LLM: decision ✅  Pattern: ❌  → candidate "决定" (2 hits) → 🎉 promoted!
+Week 3: "决定用 Docker 部署"     → Pattern: ✅ "决定" matches → importance boosted, no LLM needed
+```
+
+**Three-layer pattern merge:**
+- **Built-in** — English patterns (decided, shipped, bug, etc.)
+- **User** (`patterns.toml`) — manually added patterns in any language
+- **Learned** (`learned_patterns.toml`) — auto-discovered from usage
+
+```toml
+# ~/.engram/patterns.toml (user-defined, optional)
+[quality]
+decision_markers = ["拍板", "确认使用"]
+milestone_markers = ["上线了", "发布了"]
+
+[conflicts]
+supersede_signals = ["换成", "迁移到"]
+```
+
+```toml
+# ~/.engram/config.toml
+[learning]
+promotion_threshold = 2    # hits needed before a candidate becomes active (default: 2)
+```
+
 ## LLM Configuration (Optional)
 
-Engram works without any LLM. To enable AI-powered fact extraction:
+Engram works without any LLM. LLM capability is injected by the host agent via `think_fn` callback. See [docs/llm-integration.md](docs/llm-integration.md) for details.
 
-```yaml
-# ~/.engram/config.yaml
-llm:
-  provider: ollama          # ollama | openai | anthropic | none
-  model: llama3.2           # model name
-  # api_key: sk-...         # for openai/anthropic
+```toml
+# ~/.engram/config.toml
+[llm]
+# rerank = true              # LLM reranking (default: true when think_fn provided)
+# query_rewrite = false       # rewrite vague queries (adds ~200ms)
+# temporal_reasoning = true   # LLM reasoning for time-related questions
 ```
 
 ## License

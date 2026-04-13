@@ -10,10 +10,11 @@
 4. [集成点二：搜索重排](#4-集成点二搜索重排)
 5. [集成点三：查询重写](#5-集成点三查询重写)
 6. [集成点四：时间推理](#6-集成点四时间推理)
-7. [配置说明](#7-配置说明)
-8. [错误处理与降级策略](#8-错误处理与降级策略)
-9. [成本估算](#9-成本估算)
-10. [端到端示例](#10-端到端示例)
+7. [与 Pattern Learning 的关系](#7-与-pattern-learning-的关系)
+8. [配置说明](#8-配置说明)
+9. [错误处理与降级策略](#9-错误处理与降级策略)
+10. [成本估算](#10-成本估算)
+11. [端到端示例](#11-端到端示例)
 
 ---
 
@@ -276,7 +277,7 @@ def _parse_llm_response(response_text: str) -> List[FactCandidate]:
 | 方面 | `llm_fn` 回调 | 内置 HTTP |
 |------|---------------|-----------|
 | 调用方 | 宿主 agent | engram 自己 |
-| 模型选择 | 宿主 agent 决定 | `config.yaml` 配置 |
+| 模型选择 | 宿主 agent 决定 | `config.toml` 配置 |
 | 认证 | 宿主 agent 处理 | 需配置 `api_key` |
 | System 消息 | 通过 `system` 参数传递 | 硬编码在 HTTP 请求中 |
 | 温度 | 通过 `**kwargs` 传递 | 硬编码 `0.1` |
@@ -423,10 +424,10 @@ def rewrite_query(query: str, llm_fn: LLMCallback) -> str:
 
 ### 配置
 
-```yaml
-# config.yaml
-llm:
-  query_rewrite: true   # 默认 false — 增加约 200ms 延迟
+```toml
+# config.toml
+[llm]
+query_rewrite = true   # 默认 false — 增加约 200ms 延迟
 ```
 
 ```bash
@@ -498,15 +499,39 @@ if temporal_answer and enriched:
 
 ### 配置
 
-```yaml
-# config.yaml
-llm:
-  temporal_reasoning: true   # 默认 true（仅标记检测门控，成本极低）
+```toml
+# config.toml
+[llm]
+temporal_reasoning = true   # 默认 true（仅标记检测门控，成本极低）
 ```
 
 ---
 
-## 7. 配置说明
+## 7. 与 Pattern Learning 的关系
+
+Pattern Learning（`learn.py`）不是 LLM 集成点，但它**观察**LLM 集成点（事实提取）的输出。
+
+```
+                                零额外 LLM 调用
+                                ┌─────────────┐
+   ④ 事实提取 (LLM)             │  learn.py    │
+   输出: [FactCandidate]  ─────►│  比较:       │
+                                │  LLM 提取了   │──► learned_patterns.toml
+   ① 质量门控 (regex)           │  但 regex 没  │
+   输出: matched_categories ───►│  匹配到 → 学! │
+                                └─────────────┘
+```
+
+**关键设计**：
+- Pattern Learning **复用**事实提取的 LLM 调用输出，不发起任何新的 LLM 调用
+- 当 LLM 不可用时（纯启发式模式），Pattern Learning 仍然工作——只是学习机会更少（启发式提取的事实比 LLM 少）
+- 学会的 pattern 可以**替代** LLM 做部分判断（如中文决策关键词匹配），降低对 LLM 的依赖
+
+详见 [data-flow.md — Step 8: Pattern Learning](./data-flow.md)。
+
+---
+
+## 8. 配置说明
 
 ### 环境变量
 
@@ -520,19 +545,20 @@ llm:
 | `ENGRAM_RERANK_CANDIDATES` | 重排候选数 | `20` |
 | `ENGRAM_QUERY_REWRITE` | 启用查询重写 (`1`/`0`) | `0` |
 | `ENGRAM_TEMPORAL_REASONING` | 启用时间推理 (`1`/`0`) | `1` |
+| `ENGRAM_PROMOTION_THRESHOLD` | Pattern 学习晋升阈值 | `2` |
 
-### config.yaml
+### config.toml
 
-```yaml
-llm:
-  provider: "none"              # "ollama" | "openai" | "anthropic" | "none"
-  # model: "llama3.2"           # 按 provider 默认
-  # api_key: ""                 # 或用 ENGRAM_LLM_API_KEY
-  # base_url: ""                # ollama: http://localhost:11434
-  # rerank: true                # LLM 重排（默认 true）
-  # rerank_candidates: 20       # 重排候选数
-  # query_rewrite: false        # 查询重写（默认 false，增加延迟）
-  # temporal_reasoning: true    # 时间推理（默认 true）
+```toml
+# ~/.engram/config.toml
+[llm]
+# rerank = true                  # LLM 重排（默认 true 当 think_fn 可用时）
+# rerank_candidates = 20         # 重排候选数
+# query_rewrite = false          # 查询重写（默认 false，增加延迟）
+# temporal_reasoning = true      # 时间推理（默认 true）
+
+[learning]
+# promotion_threshold = 2        # 候选 pattern 晋升阈值（默认: 2）
 ```
 
 ### 功能矩阵
@@ -543,10 +569,11 @@ llm:
 | 搜索重排 | 是 | 开启 | +200-300ms 搜索时 |
 | 查询重写 | 是 | **关闭** | +200ms 搜索时 |
 | 时间推理 | 是 | 开启 | +200ms（仅时间查询） |
+| Pattern 学习 | **否**（观察已有 LLM 输出） | 开启 | < 1ms（纯 Python） |
 
 ---
 
-## 8. 错误处理与降级策略
+## 9. 错误处理与降级策略
 
 ### 降级总原则
 
@@ -593,7 +620,7 @@ return fallback_result  # 始终有合理的降级值
 
 ---
 
-## 9. 成本估算
+## 10. 成本估算
 
 ### Token 消耗预估
 
@@ -617,7 +644,7 @@ return fallback_result  # 始终有合理的降级值
 
 ---
 
-## 10. 端到端示例
+## 11. 端到端示例
 
 ### 示例：完整的记忆写入 + 搜索流程
 
@@ -729,14 +756,17 @@ stack = MemoryStack(config=config)
 | 文件 | 操作 | 变更说明 |
 |------|------|----------|
 | `src/engram/llm.py` | **新建** | LLM 回调协议 + 4 个 prompt 构建器 |
-| `src/engram/config.py` | 修改 | 新增 `query_rewrite_enabled` 和 `temporal_reasoning_enabled` |
+| `src/engram/learn.py` | **新建** | 自适应 pattern 学习引擎（观察 LLM 输出，零额外调用） |
+| `src/engram/config.py` | 修改 | TOML 配置、三层 pattern 合并、`promotion_threshold`、`reload_learned_patterns()` |
+| `src/engram/quality.py` | 修改 | 新增 `quality_gate_detailed()` 返回 matched_categories |
 | `src/engram/extract.py` | 修改 | `extract_facts()` 接受 `llm_fn` 参数 |
 | `src/engram/rerank.py` | 修改 | `rerank()` 接受 `llm_fn` 参数 |
 | `src/engram/search.py` | 修改 | 集成查询重写 + 时间推理 + `llm_fn` 传递 |
 | `src/engram/layers.py` | 修改 | `MemoryStack.__init__()` 接受 `llm_fn` |
-| `src/engram/remember.py` | 修改 | `remember()` 接受 `llm_fn` 参数 |
+| `src/engram/remember.py` | 修改 | `remember()` 接受 `llm_fn`，hook `learn_from_extraction()` |
 | `src/engram/index.py` | 修改 | `vector_search_reranked()` 接受 `llm_fn` |
 | `src/engram/mcp_server.py` | 修改 | 新增 `set_llm_callback()` 全局注入 |
 | `src/engram/__init__.py` | 修改 | 导出 `LLMCallback` |
 | `tests/test_llm.py` | **新建** | 36 个测试覆盖所有 LLM 功能 |
+| `tests/test_learn.py` | **新建** | 41 个测试覆盖 pattern learning 全流程 |
 | `tests/test_rerank.py` | 修改 | 新增 2 个 `llm_fn` 回调路径测试 |

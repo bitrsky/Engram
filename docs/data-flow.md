@@ -54,7 +54,9 @@
 
 ```
 ~/.engram/
-├── config.yaml              # 全局配置（LLM provider、rerank 设置等）
+├── config.toml              # 全局配置（TOML 格式，LLM/rerank/learning 设置等）
+├── patterns.toml            # 用户自定义 pattern（可选，任意语言）
+├── learned_patterns.toml    # 自动学习的 pattern（系统管理，可手动编辑）
 ├── identity.md              # L0 身份文件（给 AI agent 读的 "我是谁"）
 ├── memories/                # ★ 核心：所有记忆的 Markdown 文件
 │   ├── mem_2026-01-15_a3f7c2.md
@@ -78,7 +80,9 @@
 | `projects/*.md` | 项目注册 & 元信息 | ❌ 不可重建（用户创建） |
 | `facts/*.md` | 结构化知识三元组 | ❌ 不可重建（提取结果） |
 | `identity.md` | AI agent 身份描述 | ❌ 不可重建（用户编辑） |
-| `config.yaml` | 系统配置 | ❌ 不可重建（用户配置） |
+| `config.toml` | 系统配置 | ❌ 不可重建（用户配置） |
+| `patterns.toml` | 用户自定义 pattern | ❌ 不可重建（用户配置） |
+| `learned_patterns.toml` | 自动学习的 pattern | ✅ 可从头重新学习 |
 | `.index/` | ChromaDB + SQLite | ✅ 可 `engram rebuild-index` 重建 |
 
 ---
@@ -87,7 +91,7 @@
 
 ### 3.1 完整写入流水线 — `remember.py::remember()`
 
-写入操作经过 **7 步流水线**。Step 1–3 是关键路径（失败即中止），Step 4–7 是非关键步骤（失败不影响记忆存储）。
+写入操作经过 **8 步流水线**。Step 1–3 是关键路径（失败即中止），Step 4–8 是非关键步骤（失败不影响记忆存储）。
 
 ```
 用户输入 "remember X"
@@ -96,15 +100,19 @@
 ┌─────────────────────────────────────────────────────┐
 │  Step 1: Quality Gate (quality.py)                  │
 │                                                     │
-│  纯启发式规则，无 LLM 依赖：                         │
+│  纯启发式规则，无 LLM 依赖（三层 pattern 合并）：    │
+│  ├── builtin (英文) + patterns.toml (用户自定义)     │
+│  │   + learned_patterns.toml (自动学习)             │
 │  ├── 空内容/纯空白 → REJECT                         │
 │  ├── 代码文件 prose_ratio < 0.15 → REJECT           │
 │  ├── 太短 < 50 字符 → 存，但 importance = 0.5       │
-│  ├── 噪音模式 ("ok","sure","Here's...") → REJECT    │
-│  ├── 决策标记 ("decided","chose") → importance = 4.0│
-│  ├── 里程碑标记 ("launched","shipped") → imp = 4.0  │
+│  ├── 噪音模式 ("ok","sure","好的") → REJECT          │
+│  ├── 决策标记 ("decided","决定") → importance = 4.0  │
+│  ├── 里程碑标记 ("launched","上线了") → imp = 4.0    │
 │  ├── 问题标记 ("bug","broken") → importance = 3.5   │
 │  └── 默认 → importance = 3.0                        │
+│                                                     │
+│  ★ 返回 matched_categories（供 Step 8 使用）        │
 └───────────────────────┬─────────────────────────────┘
                         │ importance 值
                         ▼
@@ -225,6 +233,35 @@
 │                                                     │
 │  更新 projects/{project}.md:                         │
 │  └── last_active = now                               │
+└───────────────────────┬─────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────┐
+│  Step 8: Pattern Learning (learn.py) [非关键]        │
+│                                                     │
+│  零额外 LLM 调用 — 纯观察已有输出:                   │
+│  ├── 比较: LLM 提取的事实 vs quality gate 匹配       │
+│  │   LLM 说 predicate="decision"                    │
+│  │   但 quality gate 没匹配到 decision_markers       │
+│  │   → 说明有关键词 pattern 未覆盖到                  │
+│  │                                                   │
+│  ├── 提取: 从原文中提取关键词 (CJK-aware)             │
+│  │   "我们决定用PostgreSQL" → ["决定"]                │
+│  │                                                   │
+│  ├── 候选管理 (两级晋升):                             │
+│  │   ├── 第1次见到 → candidate (hits=1)              │
+│  │   ├── 第2次见到 → hits≥2 → 🎉 晋升为正式 pattern  │
+│  │   └── 阈值可配: config.toml [learning]             │
+│  │       promotion_threshold = 2                      │
+│  │                                                   │
+│  └── 晋升后: 写入 learned_patterns.toml               │
+│      → config.reload_learned_patterns()               │
+│      → 下次 quality gate 自动使用新 pattern           │
+│                                                     │
+│  ★ 效果: 系统越用越懂用户的语言习惯                    │
+│    英文用户 → 内置 pattern 够用 → 不学习              │
+│    中文用户 → 自动学会 "决定/上线了/换成"              │
+│    日文用户 → 自动学会 "決定した/デプロイ"             │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -484,13 +521,16 @@ Engram 不直接调用 LLM API。LLM 能力通过 `llm_fn` 回调由宿主 agent
 
 ### 7.2 配置
 
-```yaml
-# ~/.engram/config.yaml
-llm:
-  rerank: true                # 启用 LLM 重排 (默认: true)
-  rerank_candidates: 20       # 重排候选数量 (默认: 20)
-  query_rewrite: false         # 查询重写 (默认: false, 增加延迟)
-  temporal_reasoning: true     # 时间推理 (默认: true)
+```toml
+# ~/.engram/config.toml
+[llm]
+# rerank = true                  # 启用 LLM 重排 (默认: true)
+# rerank_candidates = 20         # 重排候选数量 (默认: 20)
+# query_rewrite = false          # 查询重写 (默认: false, 增加延迟)
+# temporal_reasoning = true      # 时间推理 (默认: true)
+
+[learning]
+# promotion_threshold = 2        # 候选 pattern 晋升阈值（默认: 2）
 ```
 
 环境变量覆盖（优先级高于配置文件）：
@@ -501,6 +541,7 @@ llm:
 | `ENGRAM_RERANK_CANDIDATES` | `llm.rerank_candidates` |
 | `ENGRAM_QUERY_REWRITE` | `llm.query_rewrite` |
 | `ENGRAM_TEMPORAL_REASONING` | `llm.temporal_reasoning` |
+| `ENGRAM_PROMOTION_THRESHOLD` | `learning.promotion_threshold` |
 
 ---
 
@@ -575,6 +616,16 @@ llm:
 
 8. Update Project (projects.py):
    projects/saas-app.md → last_active = 2026-06-15T10:30:00
+
+9. Pattern Learning (learn.py):
+   quality gate 匹配了 "switched" → matched_categories = {"decision_markers"}
+   LLM 提取了 predicate="uses" + conflicts_with 非空
+   → 比较: supersede_signals 也匹配了 "switched from" → 无需学习
+   → 本次无新 candidate（英文 pattern 已覆盖）
+   ★ 如果是中文 "我们把 MongoDB 换成了 PostgreSQL":
+     quality gate 无匹配 → matched_categories = {}
+     → 发现 "换成" 是 supersede_signals 未覆盖的关键词
+     → candidate "换成" (hits=1), 再见一次晋升
 ```
 
 **读取阶段：**
@@ -627,6 +678,8 @@ llm:
                  ▼            ▼
              remember.py  ◄───┘
                  │
+                 ├──► learn.py  (pattern learning, 观察 extract 输出)
+                 │
                  ▼
              ingest.py
                  │
@@ -639,6 +692,7 @@ llm:
      独立模块:
        rerank.py   ← 由 index.py / search.py / layers.py 调用
        extract.py  ← 由 remember.py 调用
+       learn.py    ← 由 remember.py 调用（观察 extract 输出，零 LLM 调用）
        decay.py    ← 由 cli.py 直接调用
 ```
 
@@ -646,19 +700,20 @@ llm:
 
 | 模块 | 行数 | 职责 |
 |---|---|---|
-| `config.py` | ~280 | 配置管理、目录结构、LLM/rerank 设置 |
+| `config.py` | ~680 | 配置管理、目录结构、三层 pattern 合并、TOML 格式 |
 | `store.py` | ~420 | Markdown 文件读写（Source of Truth） |
 | `index.py` | ~500 | 双索引管理（ChromaDB + SQLite） |
 | `search.py` | ~250 | 带增强的语义搜索（事实 + 冲突） |
 | `layers.py` | ~400 | 四层检索栈（L0–L3）统一接口 |
-| `remember.py` | ~200 | 7 步写入流水线 |
+| `remember.py` | ~400 | 8 步写入流水线（含 pattern learning hook） |
 | `ingest.py` | ~990 | 多格式批量摄入 + 分块 |
 | `extract.py` | ~550 | 事实提取（LLM + 启发式双模式） |
+| `learn.py` | ~400 | **自适应 pattern 学习（零 LLM 调用）** |
 | `facts.py` | ~500 | 事实文件管理（CRUD + 查询） |
 | `conflicts.py` | ~350 | 冲突分类 + 解决引擎（4 类冲突） |
 | `projects.py` | ~300 | 项目注册 + 上下文路由 |
 | `dedup.py` | ~150 | 三级语义去重 |
-| `quality.py` | ~200 | 质量门控（启发式规则） |
+| `quality.py` | ~200 | 质量门控（三层 pattern 匹配 + matched_categories 输出） |
 | `decay.py` | ~200 | 衰减 + 提升引擎 |
 | `rerank.py` | ~300 | LLM 重排（listwise） |
 | `cli.py` | ~580 | 命令行入口 |
@@ -670,6 +725,7 @@ llm:
 | 决策 | 选择 | 原因 |
 |---|---|---|
 | Source of Truth | Markdown 文件 | 人类可读、可 Git 版本控制、不依赖任何数据库 |
+| 配置格式 | TOML (config.toml) | Python 3.11+ 内置 tomllib，简洁易读 |
 | 向量引擎 | ChromaDB (内置 all-MiniLM-L6-v2) | 零配置，自动 embedding，384 维 |
 | 元数据存储 | SQLite | 结构化查询、去重 hash 查找、访问计数 |
 | LLM 调用方式 | llm_fn 回调协议 | 宿主 agent 注入，零 SDK 依赖 |
@@ -680,3 +736,5 @@ llm:
 | 检索架构 | 4 层栈 (L0–L3) | 从静态到动态逐层加深，按需触发 |
 | 索引策略 | 全量重建 + 增量更新 | 索引是派生物，随时可重建 |
 | 重要性管理 | 自动衰减 + 访问提升 | 模拟人类遗忘曲线，常用记忆自然浮升 |
+| Pattern 管理 | 三层合并 (builtin + user + learned) | 内置英文、用户可扩展任意语言、系统自动学习 |
+| Pattern 学习 | 观察 LLM 输出，零额外调用 | 相当于 LLM 是老师，regex 是学生，教几遍就会 |

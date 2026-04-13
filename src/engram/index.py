@@ -749,63 +749,6 @@ class IndexManager:
         hits.sort(key=lambda h: h.similarity, reverse=True)
         return hits[:n]
 
-    def vector_search_reranked(
-        self,
-        query: str,
-        config,
-        project: Optional[str] = None,
-        topics: Optional[List[str]] = None,
-        memory_type: Optional[str] = None,
-        n: int = 5,
-        candidates: int = 0,
-        think_fn=None,
-    ) -> List[SearchHit]:
-        """
-        Two-stage search: vector retrieve top candidates, then LLM rerank to top n.
-
-        Falls back to plain vector_search() if LLM is unavailable or reranking fails.
-
-        Args:
-            query: Search query text
-            config: EngramConfig instance (for LLM settings)
-            project: Filter by project
-            topics: Filter by topics
-            memory_type: Filter by type
-            n: Final number of results after reranking
-            candidates: Number of candidates to fetch (0 = use config default)
-            think_fn: Optional agent thinking function (see engram.llm.ThinkFn)
-        """
-        from .rerank import rerank
-
-        if not config.rerank_enabled:
-            return self.vector_search(
-                query=query, project=project, topics=topics,
-                memory_type=memory_type, n=n,
-            )
-
-        n_candidates = candidates if candidates > 0 else config.rerank_candidates
-        # Ensure we fetch at least n candidates
-        n_candidates = max(n_candidates, n)
-
-        # Stage 1: vector search for broad candidates
-        raw_hits = self.vector_search(
-            query=query, project=project, topics=topics,
-            memory_type=memory_type, n=n_candidates,
-        )
-
-        if len(raw_hits) <= n:
-            # Not enough candidates to rerank — return as-is
-            return raw_hits
-
-        # Stage 2: LLM rerank
-        return rerank(
-            query=query,
-            candidates=raw_hits,
-            config=config,
-            top_k=n,
-            think_fn=think_fn,
-        )
-
     # ------------------------------------------------------------------
     # Search — structured (SQLite)
     # ------------------------------------------------------------------

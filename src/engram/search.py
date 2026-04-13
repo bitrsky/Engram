@@ -39,7 +39,6 @@ class SearchResults:
     project: Optional[str] = None
     total_facts_found: int = 0
     unresolved_conflicts: int = 0
-    deep_answer: Optional[str] = None  # LLM deep search answer (when enabled)
 
 
 def search(
@@ -82,35 +81,17 @@ def search(
         SearchResults with enriched hits
     """
     config = config or EngramConfig()
-
-    # Step 0: Query rewrite (optional)
     original_query = query
-    if think_fn is not None and config.query_rewrite_enabled:
-        try:
-            from .llm import rewrite_query
-            query = rewrite_query(query, think_fn)
-        except Exception:
-            pass  # Use original query
 
-    # Step 1: Vector search (with optional reranking)
-    if config.rerank_enabled:
-        raw_hits = index_manager.vector_search_reranked(
-            query=query,
-            config=config,
-            project=project,
-            topics=topics,
-            memory_type=memory_type,
-            n=n,
-            think_fn=think_fn,
-        )
-    else:
-        raw_hits = index_manager.vector_search(
-            query=query,
-            project=project,
-            topics=topics,
-            memory_type=memory_type,
-            n=n,
-        )
+    # Step 1: Vector search
+    raw_hits = index_manager.vector_search(
+        query=query,
+        n=n,
+        config=config,
+        project=project,
+        topics=topics,
+        memory_type=memory_type,
+    )
 
     # Step 2: Update access stats
     for hit in raw_hits:
@@ -119,39 +100,7 @@ def search(
         except Exception:
             pass  # Non-critical
 
-    # Step 2.5: Deep search (optional — LLM reads all memories)
-    deep_answer = None
-    if think_fn is not None and config.deep_search_enabled:
-        try:
-            from .llm import deep_search_simple as _deep_search
-            from .store import list_memories
-
-            # Get all memory files for context
-            all_memories = list_memories(
-                memories_dir=config.memories_dir,
-                project=project,
-            )
-            memory_listing = []
-            for mem in all_memories:
-                memory_listing.append({
-                    "filename": Path(mem.get("file_path", "")).name if mem.get("file_path") else "?",
-                    "id": mem.get("id", ""),
-                    "project": mem.get("project", ""),
-                    "created": str(mem.get("created", ""))[:10],
-                    "preview": mem.get("content", "")[:80],
-                    "content": mem.get("content", ""),
-                })
-
-            deep_answer = _deep_search(
-                query=original_query,
-                think_fn=think_fn,
-                vector_hits=raw_hits,
-                memory_listing=memory_listing,
-            )
-        except Exception:
-            pass
-
-    # Step 2.6: Temporal reasoning (optional)
+    # Step 2.5: Temporal reasoning (optional)
     temporal_answer = None
     if think_fn is not None and config.temporal_reasoning_enabled and raw_hits:
         try:
@@ -214,7 +163,6 @@ def search(
         project=project,
         total_facts_found=total_facts,
         unresolved_conflicts=total_conflicts,
-        deep_answer=deep_answer,
     )
 
 
@@ -357,12 +305,6 @@ def format_search_results(results: SearchResults, max_width: int = 80) -> str:
     ⚠️ 1 unresolved conflict in this project
     """
     lines = []
-
-    # Deep search answer (if available, show prominently)
-    if results.deep_answer:
-        lines.append("💡 Deep Search Answer:")
-        lines.append(f"  {results.deep_answer}")
-        lines.append("")
 
     # Header
     project_part = f" (project: {results.project})" if results.project else ""

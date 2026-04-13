@@ -113,11 +113,7 @@ _DEFAULT_CONFIG_TOML = """\
 # LLM capability is injected by the host agent via think_fn callback.
 # These toggles control which LLM features are enabled.
 [llm]
-# rerank = true                  # enable LLM reranking (default: true when think_fn provided)
-# rerank_candidates = 20         # number of vector candidates to rerank
-# query_rewrite = false          # rewrite vague queries before search (adds ~200ms)
 # temporal_reasoning = true      # LLM reasoning for time-related questions
-# deep_search = false            # LLM deep search over all memories (opt-in, slow)
 
 # ── Exclusive predicates ────────────────────────────────────────────────────
 # Predicates listed here trigger conflict detection: when a new fact is filed
@@ -383,70 +379,6 @@ class EngramConfig:
         """Return the ``[llm]`` section of the config (may be empty)."""
         return self._config.get("llm", {}) or {}
 
-    # ── Rerank config properties ─────────────────────────────────────────────
-
-    @property
-    def rerank_enabled(self) -> bool:
-        """
-        True if LLM reranking is enabled.
-
-        Can be explicitly disabled with ``rerank = false`` under ``[llm]``
-        or env var ENGRAM_RERANK=0.  Default: True.
-
-        Note: actual reranking only happens when a think_fn callback is
-        provided at runtime.
-        """
-        env_val = os.environ.get("ENGRAM_RERANK")
-        if env_val is not None:
-            return env_val.strip().lower() not in ("0", "false", "no", "off")
-        configured = self._llm_section().get("rerank")
-        if configured is not None:
-            return bool(configured)
-        return True
-
-    @property
-    def rerank_candidates(self) -> int:
-        """
-        Number of vector search candidates to fetch for reranking.
-
-        Default: 20. Override with ``rerank_candidates`` under ``[llm]``
-        or env var ENGRAM_RERANK_CANDIDATES.
-        """
-        env_val = os.environ.get("ENGRAM_RERANK_CANDIDATES")
-        if env_val:
-            try:
-                return max(1, int(env_val))
-            except (ValueError, TypeError):
-                pass
-        configured = self._llm_section().get("rerank_candidates")
-        if configured is not None:
-            try:
-                return max(1, int(configured))
-            except (ValueError, TypeError):
-                pass
-        return 20
-
-    # ── Query rewrite config ─────────────────────────────────────────────────
-
-    @property
-    def query_rewrite_enabled(self) -> bool:
-        """
-        True if LLM query rewrite is enabled.
-
-        Rewrites vague queries into more specific search terms before
-        vector search.  Adds ~200ms latency per search.
-
-        Default: False (opt-in).  Override with ``query_rewrite = true``
-        under ``[llm]`` or env var ENGRAM_QUERY_REWRITE=1.
-        """
-        env_val = os.environ.get("ENGRAM_QUERY_REWRITE")
-        if env_val is not None:
-            return env_val.strip().lower() in ("1", "true", "yes", "on")
-        configured = self._llm_section().get("query_rewrite")
-        if configured is not None:
-            return bool(configured)
-        return False
-
     # ── Temporal reasoning config ────────────────────────────────────────────
 
     @property
@@ -465,25 +397,6 @@ class EngramConfig:
         if configured is not None:
             return bool(configured)
         return True
-
-    # ── Deep search config ───────────────────────────────────────────────────
-
-    @property
-    def deep_search_enabled(self) -> bool:
-        """
-        True if LLM deep search is enabled.
-
-        Default: False (opt-in — uses more tokens / is slower).
-        Override with ``deep_search = true`` under ``[llm]``
-        or env var ENGRAM_DEEP_SEARCH=1.
-        """
-        env_val = os.environ.get("ENGRAM_DEEP_SEARCH")
-        if env_val is not None:
-            return env_val.strip().lower() in ("1", "true", "yes", "on")
-        configured = self._llm_section().get("deep_search")
-        if configured is not None:
-            return bool(configured)
-        return False
 
     # ── Learning configuration ───────────────────────────────────────────────
 
