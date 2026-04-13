@@ -313,14 +313,23 @@ class MemoryStack:
                 projects_dir=self._config.projects_dir,
             )
 
-            # 2. Semantic search
+            # 2. Semantic search (with optional LLM reranking)
             topics = [topic] if topic else None
-            hits = self.index.vector_search(
-                query=message,
-                project=resolved,
-                topics=topics,
-                n=n,
-            )
+            if self._config.rerank_enabled:
+                hits = self.index.vector_search_reranked(
+                    query=message,
+                    config=self._config,
+                    project=resolved,
+                    topics=topics,
+                    n=n,
+                )
+            else:
+                hits = self.index.vector_search(
+                    query=message,
+                    project=resolved,
+                    topics=topics,
+                    n=n,
+                )
 
             if not hits:
                 return ""
@@ -354,12 +363,21 @@ class MemoryStack:
             return "No query provided."
 
         try:
-            hits = self.index.vector_search(
-                query=query,
-                project=project,
-                topics=topics,
-                n=n,
-            )
+            if self._config.rerank_enabled:
+                hits = self.index.vector_search_reranked(
+                    query=query,
+                    config=self._config,
+                    project=project,
+                    topics=topics,
+                    n=n,
+                )
+            else:
+                hits = self.index.vector_search(
+                    query=query,
+                    project=project,
+                    topics=topics,
+                    n=n,
+                )
 
             if not hits:
                 scope = f" in project '{project}'" if project else ""

@@ -77,14 +77,24 @@ def search(
     """
     config = config or EngramConfig()
 
-    # Step 1: Vector search
-    raw_hits = index_manager.vector_search(
-        query=query,
-        project=project,
-        topics=topics,
-        memory_type=memory_type,
-        n=n,
-    )
+    # Step 1: Vector search (with optional LLM reranking)
+    if config.rerank_enabled:
+        raw_hits = index_manager.vector_search_reranked(
+            query=query,
+            config=config,
+            project=project,
+            topics=topics,
+            memory_type=memory_type,
+            n=n,
+        )
+    else:
+        raw_hits = index_manager.vector_search(
+            query=query,
+            project=project,
+            topics=topics,
+            memory_type=memory_type,
+            n=n,
+        )
 
     # Step 2: Update access stats
     for hit in raw_hits:

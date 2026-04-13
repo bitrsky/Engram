@@ -63,6 +63,8 @@ llm:
   # model: "llama3.2"            # default depends on provider
   # api_key: ""                  # or set ENGRAM_LLM_API_KEY
   # base_url: ""                 # ollama default: http://localhost:11434
+  # rerank: true                 # enable LLM reranking (default: true when LLM available)
+  # rerank_candidates: 20        # number of vector candidates to rerank
 
 # ── Exclusive predicates ────────────────────────────────────────────────────
 # Predicates listed here trigger conflict detection: when a new fact is filed
@@ -119,10 +121,14 @@ class EngramConfig:
         config_path   — ~/.engram/config.yaml
 
     LLM config:
-        llm_provider  — "ollama" | "openai" | "anthropic" | "none" (default: "none")
-        llm_model     — model name (default depends on provider)
-        llm_api_key   — API key (from config or env var ENGRAM_LLM_API_KEY)
-        llm_base_url  — Base URL for API (ollama default: http://localhost:11434)
+        llm_provider  -- "ollama" | "openai" | "anthropic" | "none" (default: "none")
+        llm_model     -- model name (default depends on provider)
+        llm_api_key   -- API key (from config or env var ENGRAM_LLM_API_KEY)
+        llm_base_url  -- Base URL for API (ollama default: http://localhost:11434)
+
+    Rerank config:
+        rerank_enabled    -- True when LLM available and not disabled (default: True)
+        rerank_candidates -- How many vector candidates to rerank (default: 20)
     """
 
     def __init__(self, base_dir=None):
@@ -221,6 +227,49 @@ class EngramConfig:
     def llm_available(self) -> bool:
         """True if an LLM provider is configured and not 'none'."""
         return self.llm_provider not in ("none", "")
+
+    # ── Rerank config properties ─────────────────────────────────────────────
+
+    @property
+    def rerank_enabled(self) -> bool:
+        """
+        True if LLM reranking is enabled.
+
+        Requires LLM to be available. Can be explicitly disabled with
+        ``llm.rerank: false`` in config or env var ENGRAM_RERANK=0.
+        """
+        env_val = os.environ.get("ENGRAM_RERANK")
+        if env_val is not None:
+            return env_val.strip().lower() not in ("0", "false", "no", "off")
+        if not self.llm_available:
+            return False
+        configured = self._llm_section().get("rerank")
+        if configured is not None:
+            return bool(configured)
+        # Default: enabled when LLM is available
+        return True
+
+    @property
+    def rerank_candidates(self) -> int:
+        """
+        Number of vector search candidates to fetch for reranking.
+
+        Default: 20. Override with ``llm.rerank_candidates`` in config
+        or env var ENGRAM_RERANK_CANDIDATES.
+        """
+        env_val = os.environ.get("ENGRAM_RERANK_CANDIDATES")
+        if env_val:
+            try:
+                return max(1, int(env_val))
+            except (ValueError, TypeError):
+                pass
+        configured = self._llm_section().get("rerank_candidates")
+        if configured is not None:
+            try:
+                return max(1, int(configured))
+            except (ValueError, TypeError):
+                pass
+        return 20
 
     # ── Exclusive predicates ────────────────────────────────────────────────
 

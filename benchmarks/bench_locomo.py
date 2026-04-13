@@ -146,12 +146,18 @@ def _evidence_to_session_ids(evidence_ids: List[str]) -> Set[str]:
 def evaluate_conversation(
     sample: dict,
     k_values: List[int],
+    use_rerank: bool = False,
 ) -> List[dict]:
     """
     Evaluate Engram retrieval on all QA pairs from one LoCoMo conversation.
 
     Creates a temporary Engram index, ingests all sessions from the
     conversation, then evaluates each QA pair.
+
+    Args:
+        sample: LoCoMo conversation sample
+        k_values: K values for recall metrics
+        use_rerank: If True, use LLM reranking (requires LLM config)
 
     Returns list of per-question result dicts.
     """
@@ -235,7 +241,13 @@ def evaluate_conversation(
                 continue
 
             # Query
-            hits = mgr.vector_search(query=question, n=max_k)
+            if use_rerank:
+                hits = mgr.vector_search_reranked(
+                    query=question, config=config, n=max_k,
+                    candidates=config.rerank_candidates,
+                )
+            else:
+                hits = mgr.vector_search(query=question, n=max_k)
             retrieved_ids = [h.id for h in hits]
             retrieved_session_ids = [
                 memory_to_session.get(mid, mid) for mid in retrieved_ids
@@ -284,6 +296,7 @@ def evaluate_conversation(
 def run_benchmark(
     k_values: List[int] = None,
     limit: int = 0,
+    use_rerank: bool = False,
 ) -> Tuple[List[dict], dict]:
     """
     Run the full LoCoMo benchmark.
@@ -291,6 +304,7 @@ def run_benchmark(
     Args:
         k_values: K values for Recall@K (default: [3, 5, 10])
         limit: Max conversations to evaluate (0 = all)
+        use_rerank: If True, use LLM reranking
 
     Returns:
         (results_list, summary_dict)
@@ -303,6 +317,7 @@ def run_benchmark(
     print(f"{'='*60}")
     print(f"K values:   {k_values}")
     print(f"Limit:      {limit or 'all (10 conversations)'}")
+    print(f"Rerank:     {'ON' if use_rerank else 'OFF'}")
     print(f"Time:       {datetime.now().isoformat()}")
     print(f"{'='*60}\n")
 
@@ -323,7 +338,7 @@ def run_benchmark(
         n_qa = len(sample.get("qa", []))
         print(f"  [{i+1}/{len(data)}] {sample_id} -- {n_qa} QA pairs")
 
-        conv_results = evaluate_conversation(sample, k_values)
+        conv_results = evaluate_conversation(sample, k_values, use_rerank=use_rerank)
         print(f"           -> {len(conv_results)} evaluated")
         all_results.extend(conv_results)
 
@@ -342,6 +357,7 @@ def run_benchmark(
         "dataset": "locomo",
         "total_qa": len(all_results),
         "n_conversations": len(data),
+        "rerank": use_rerank,
         "elapsed_seconds": round(elapsed_total, 1),
         "timestamp": datetime.now().isoformat(),
         "overall": {},
@@ -433,8 +449,13 @@ def main():
         default=0,
         help="Max conversations to evaluate (0 = all 10)",
     )
+    parser.add_argument(
+        "--rerank",
+        action="store_true",
+        help="Enable LLM reranking (requires LLM config)",
+    )
     args = parser.parse_args()
-    run_benchmark(k_values=args.k, limit=args.limit)
+    run_benchmark(k_values=args.k, limit=args.limit, use_rerank=args.rerank)
 
 
 if __name__ == "__main__":
