@@ -155,10 +155,12 @@ def remember(
         index_manager = IndexManager(
             index_dir=config.index_dir,
             memories_dir=config.memories_dir,
+            facts_dir=config.facts_dir,
+            projects_dir=config.projects_dir,
         )
 
     try:
-        # ── Step 2: Dedup check ──────────────────────────────────────────
+        # ── Step 2: Dedup check ───────────────────���──────────────────────
         if not skip_dedup:
             dedup = check_duplicate(content, index_manager, project)
             if dedup.is_duplicate:
@@ -210,6 +212,7 @@ def remember(
                 result=result,
                 think_fn=think_fn,
                 matched_categories=matched_categories,
+                index_manager=index_manager,
             )
 
         # ── Step 7: Update project last_active ───────────────────────────
@@ -273,6 +276,8 @@ def remember_batch(
         index_manager = IndexManager(
             index_dir=config.index_dir,
             memories_dir=config.memories_dir,
+            facts_dir=config.facts_dir,
+            projects_dir=config.projects_dir,
         )
 
     results: List[RememberResult] = []
@@ -311,6 +316,7 @@ def _extract_and_add_facts(
     result: RememberResult,
     think_fn=None,
     matched_categories=None,
+    index_manager: Optional[IndexManager] = None,
 ) -> None:
     """
     Steps 5–6: extract facts from *content* and add them to the project
@@ -318,6 +324,7 @@ def _extract_and_add_facts(
     conflicts_detected, conflict_details).
 
     Step 7 (non-critical): run pattern learner to discover new keywords.
+    Step 8 (non-critical): re-index the facts file so new facts are searchable.
 
     This is wrapped so the caller can treat the entire block as non-critical.
     """
@@ -380,6 +387,15 @@ def _extract_and_add_facts(
                     )
             except Exception:
                 logger.debug("Pattern learning failed (non-critical)", exc_info=True)
+
+        # ── Step 8 (non-critical): Re-index facts file ────────────────────
+        if result.facts_added > 0 and index_manager is not None:
+            try:
+                facts_path = config.facts_dir / f"{project}.md"
+                if facts_path.exists():
+                    index_manager.index_facts_file(facts_path)
+            except Exception:
+                logger.debug("Facts re-indexing failed (non-critical)", exc_info=True)
 
     except Exception:
         logger.debug(

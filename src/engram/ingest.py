@@ -842,6 +842,8 @@ def ingest_directory(
     index_manager = IndexManager(
         index_dir=config.index_dir,
         memories_dir=config.memories_dir,
+        facts_dir=config.facts_dir,
+        projects_dir=config.projects_dir,
     )
 
     try:

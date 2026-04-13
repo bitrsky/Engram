@@ -66,6 +66,8 @@ class MemoryStack:
             self._index = IndexManager(
                 index_dir=self._config.index_dir,
                 memories_dir=self._config.memories_dir,
+                facts_dir=self._config.facts_dir,
+                projects_dir=self._config.projects_dir,
             )
         return self._index
 

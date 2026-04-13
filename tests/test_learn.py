@@ -4,7 +4,7 @@ test_learn.py — Tests for the adaptive pattern learning system.
 Tests the full pipeline:
 1. quality_gate_detailed returns matched categories
 2. learn_from_extraction discovers new keywords from LLM facts
-3. Candidate promotion after PROMOTION_THRESHOLD hits
+3. Candidate promotion after promotion_threshold hits
 4. Config picks up learned patterns (builtin + user + learned merge)
 5. End-to-end: Chinese content → learning → pattern becomes effective
 6. Persistence: save → load round-trip for candidates and active patterns
@@ -19,7 +19,7 @@ import pytest
 from engram.config import EngramConfig, _BUILTIN_PATTERNS
 from engram.extract import FactCandidate
 from engram.learn import (
-    PROMOTION_THRESHOLD,
+    _DEFAULT_PROMOTION_THRESHOLD,
     LearnResult,
     _extract_keywords,
     _find_relevant_sentence,
@@ -292,7 +292,7 @@ class TestCandidateManagement:
                 "keyword": "决定",
                 "category": "decision_markers",
                 "section": "quality",
-                "hits": PROMOTION_THRESHOLD,
+                "hits": _DEFAULT_PROMOTION_THRESHOLD,
                 "first_seen": "2025-06-20",
                 "last_seen": "2025-06-22",
             }],
@@ -312,7 +312,7 @@ class TestCandidateManagement:
                 "keyword": "决定",
                 "category": "decision_markers",
                 "section": "quality",
-                "hits": PROMOTION_THRESHOLD - 1,
+                "hits": _DEFAULT_PROMOTION_THRESHOLD - 1,
                 "first_seen": "2025-06-20",
                 "last_seen": "2025-06-21",
             }],
@@ -549,8 +549,8 @@ class TestEndToEndLearning:
         )
         matched_categories: Set[str] = set()
 
-        # Run PROMOTION_THRESHOLD times
-        for i in range(PROMOTION_THRESHOLD):
+        # Run promotion_threshold times
+        for i in range(_DEFAULT_PROMOTION_THRESHOLD):
             result = learn_from_extraction(
                 content=f"我们决定用Redis来做缓存 (round {i})",
                 facts=[fact],

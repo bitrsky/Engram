@@ -6,6 +6,7 @@ Priority: env vars > config file > built-in defaults.
 """
 
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -128,6 +129,11 @@ _DEFAULT_CONFIG_TOML = """\
 # uses_auth = "subject"
 # status = "subject"
 # loves = "none"                 # non-exclusive — multiple values allowed
+
+# ── Pattern learning ────────────────────────────────────────────────────
+# Controls adaptive pattern learning (see learned_patterns.toml).
+# [learning]
+# promotion_threshold = 2        # hits needed before a candidate becomes active (default: 2)
 """
 
 # ── Default patterns.toml content ───────────────────────────────────────────
@@ -478,6 +484,31 @@ class EngramConfig:
         if configured is not None:
             return bool(configured)
         return False
+
+    # ── Learning configuration ───────────────────────────────────────────────
+
+    @property
+    def promotion_threshold(self) -> int:
+        """
+        Number of times a candidate keyword must be seen before promotion.
+
+        Default: 2.  Override with ``promotion_threshold`` under ``[learning]``
+        or env var ENGRAM_PROMOTION_THRESHOLD.
+        """
+        env_val = os.environ.get("ENGRAM_PROMOTION_THRESHOLD")
+        if env_val:
+            try:
+                return max(1, int(env_val))
+            except (ValueError, TypeError):
+                pass
+        learning = self._config.get("learning", {}) or {}
+        configured = learning.get("promotion_threshold")
+        if configured is not None:
+            try:
+                return max(1, int(configured))
+            except (ValueError, TypeError):
+                pass
+        return 2
 
     # ── Pattern configuration (from patterns.toml) ──────────────────────────
 

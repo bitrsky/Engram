@@ -76,14 +76,24 @@ class IndexManager:
     SQLite stores: structured metadata for non-semantic queries (filter by project, sort by date, etc.)
     """
 
-    def __init__(self, index_dir: str | Path, memories_dir: Optional[str | Path] = None):
+    def __init__(
+        self,
+        index_dir: str | Path,
+        memories_dir: Optional[str | Path] = None,
+        facts_dir: Optional[str | Path] = None,
+        projects_dir: Optional[str | Path] = None,
+    ):
         """
         Args:
             index_dir: Path to .index/ directory (contains vectors.chroma/ and meta.sqlite3)
             memories_dir: Path to memories/ directory (for rebuild)
+            facts_dir: Path to facts/ directory (for rebuild)
+            projects_dir: Path to projects/ directory (for rebuild)
         """
         self._index_dir = Path(index_dir)
         self._memories_dir = Path(memories_dir) if memories_dir else None
+        self._facts_dir = Path(facts_dir) if facts_dir else None
+        self._projects_dir = Path(projects_dir) if projects_dir else None
         self._index_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize ChromaDB
@@ -207,6 +217,197 @@ class IndexManager:
 
         return memory_id
 
+    def index_facts_file(self, filepath: str | Path) -> int:
+        """
+        Index all current facts from a single facts file.
+
+        Parses ``facts/{project}.md``, deletes old fact entries for that project,
+        then indexes each current fact as a separate document.
+
+        Returns: number of facts indexed.
+        """
+        from .facts import parse_facts_file  # avoid circular import
+
+        filepath = Path(filepath)
+        if not filepath.exists():
+            return 0
+
+        project = filepath.stem  # facts/saas-app.md → "saas-app"
+        data = parse_facts_file(project, facts_dir=filepath.parent)
+        current_facts = data.get("current", [])
+
+        # ── Remove old fact entries for this project ──────────────────────
+        old_rows = self._db.execute(
+            "SELECT id FROM memory_index WHERE project = ? AND memory_type = 'fact'",
+            (project,),
+        ).fetchall()
+        for row in old_rows:
+            try:
+                self._collection.delete(ids=[row["id"]])
+            except Exception:
+                pass
+            self._db.execute(
+                "DELETE FROM memory_index WHERE id = ?", (row["id"],)
+            )
+        self._db.commit()
+
+        # ── Index each current fact ───────────────────────────────────────
+        file_path_str = str(filepath.resolve())
+        now_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        count = 0
+
+        for fact in current_facts:
+            # Build a stable ID from the triple
+            triple_str = f"{fact.subject}|{fact.predicate}|{fact.object}"
+            fact_hash = hashlib.md5(triple_str.encode()).hexdigest()[:12]
+            fact_id = f"fact_{project}_{fact_hash}"
+
+            # Natural-language document for vector search
+            # Humanize the predicate: "uses_database" → "uses database"
+            pred_text = fact.predicate.replace("_", " ")
+            document = f"{fact.subject} {pred_text} {fact.object}"
+
+            since = fact.since or ""
+            source = fact.source or ""
+
+            chroma_meta = {
+                "project": project,
+                "topics": json.dumps([]),
+                "memory_type": "fact",
+                "importance": 5.0,
+                "created": since,
+                "file_path": file_path_str,
+                "subject": fact.subject,
+                "predicate": fact.predicate,
+                "object": fact.object,
+                "source": source,
+            }
+
+            self._collection.upsert(
+                ids=[fact_id],
+                documents=[document],
+                metadatas=[chroma_meta],
+            )
+
+            chash = _content_hash(document)
+            self._db.execute(
+                """
+                INSERT INTO memory_index
+                    (id, project, topics, memory_type, importance, created,
+                     file_path, content_hash, access_count, last_accessed, indexed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    project      = excluded.project,
+                    topics       = excluded.topics,
+                    memory_type  = excluded.memory_type,
+                    importance   = excluded.importance,
+                    created      = excluded.created,
+                    file_path    = excluded.file_path,
+                    content_hash = excluded.content_hash,
+                    indexed_at   = excluded.indexed_at
+                """,
+                (
+                    fact_id,
+                    project,
+                    json.dumps([]),
+                    "fact",
+                    5.0,
+                    since,
+                    file_path_str,
+                    chash,
+                    now_iso,
+                ),
+            )
+            count += 1
+
+        self._db.commit()
+        return count
+
+    def index_project_file(self, filepath: str | Path) -> str:
+        """
+        Index a single project file.
+
+        Parses ``projects/{id}.md`` frontmatter and indexes the project
+        metadata as a searchable document.
+
+        Returns: project id.
+        """
+        filepath = Path(filepath)
+        meta, body = parse_frontmatter(filepath)
+
+        project_id = meta.get("id", filepath.stem)
+        display_name = meta.get("display_name", project_id)
+        status = meta.get("status", "active")
+        description = meta.get("description", "")
+        aliases = meta.get("aliases", []) or []
+        tags = meta.get("tags", []) or []
+        created = str(meta.get("created", "")) or ""
+        file_path_str = str(filepath.resolve())
+
+        doc_id = f"project_{project_id}"
+
+        # Build a searchable document from all project metadata
+        parts = [f"Project: {display_name}"]
+        if description:
+            parts.append(f"Description: {description}")
+        parts.append(f"Status: {status}")
+        if aliases:
+            parts.append(f"Aliases: {', '.join(aliases)}")
+        if tags:
+            parts.append(f"Tags: {', '.join(tags)}")
+        if body.strip():
+            parts.append(body.strip())
+        document = ". ".join(parts)
+
+        chroma_meta = {
+            "project": project_id,
+            "topics": json.dumps(tags),
+            "memory_type": "project",
+            "importance": 4.0,
+            "created": created,
+            "file_path": file_path_str,
+        }
+
+        self._collection.upsert(
+            ids=[doc_id],
+            documents=[document],
+            metadatas=[chroma_meta],
+        )
+
+        chash = _content_hash(document)
+        now_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        self._db.execute(
+            """
+            INSERT INTO memory_index
+                (id, project, topics, memory_type, importance, created,
+                 file_path, content_hash, access_count, last_accessed, indexed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                project      = excluded.project,
+                topics       = excluded.topics,
+                memory_type  = excluded.memory_type,
+                importance   = excluded.importance,
+                created      = excluded.created,
+                file_path    = excluded.file_path,
+                content_hash = excluded.content_hash,
+                indexed_at   = excluded.indexed_at
+            """,
+            (
+                doc_id,
+                project_id,
+                json.dumps(tags),
+                "project",
+                4.0,
+                created,
+                file_path_str,
+                chash,
+                now_iso,
+            ),
+        )
+        self._db.commit()
+
+        return project_id
+
     def remove_from_index(self, memory_id: str) -> bool:
         """Remove a memory from both indexes. Returns True if found."""
         # Check existence in SQLite first.
@@ -234,17 +435,25 @@ class IndexManager:
     # Bulk operations
     # ------------------------------------------------------------------
 
-    def rebuild(self, memories_dir: Optional[str | Path] = None) -> int:
+    def rebuild(
+        self,
+        memories_dir: Optional[str | Path] = None,
+        facts_dir: Optional[str | Path] = None,
+        projects_dir: Optional[str | Path] = None,
+    ) -> int:
         """
-        Full rebuild: clear both indexes, scan all memories/*.md, re-index everything.
+        Full rebuild: clear both indexes, scan all memories/*.md, facts/*.md,
+        and projects/*.md, re-index everything.
 
-        Returns: number of memories indexed
+        Returns: total number of entries indexed
         """
         mem_dir = Path(memories_dir) if memories_dir else self._memories_dir
         if mem_dir is None:
             raise ValueError(
                 "memories_dir must be provided either in constructor or rebuild()"
             )
+        f_dir = Path(facts_dir) if facts_dir else self._facts_dir
+        p_dir = Path(projects_dir) if projects_dir else self._projects_dir
 
         # Clear ChromaDB collection.
         self._chroma_client.delete_collection(CHROMA_COLLECTION_NAME)
@@ -258,19 +467,38 @@ class IndexManager:
         self._db.execute("DELETE FROM index_meta")
         self._db.commit()
 
-        # Scan and index every .md file.
         count = 0
-        if mem_dir.is_dir():
+
+        # ── Memories ──────────────────────────────────────────────────────
+        if mem_dir and mem_dir.is_dir():
             for md_file in sorted(mem_dir.glob("*.md")):
                 try:
                     meta, _ = parse_frontmatter(md_file)
                     if "id" not in meta:
-                        # Not a memory file — skip.
                         continue
                     self.index_memory(md_file)
                     count += 1
                 except Exception:
-                    # Skip files that can't be parsed/indexed.
+                    continue
+
+        # ── Facts ─────────────────────────────────────────────────────────
+        if f_dir and f_dir.is_dir():
+            for md_file in sorted(f_dir.glob("*.md")):
+                try:
+                    count += self.index_facts_file(md_file)
+                except Exception:
+                    continue
+
+        # ── Projects ──────────────────────────────────────────────────────
+        if p_dir and p_dir.is_dir():
+            for md_file in sorted(p_dir.glob("*.md")):
+                try:
+                    meta, _ = parse_frontmatter(md_file)
+                    if "id" not in meta:
+                        continue
+                    self.index_project_file(md_file)
+                    count += 1
+                except Exception:
                     continue
 
         # Record rebuild timestamp.
@@ -286,18 +514,26 @@ class IndexManager:
 
         return count
 
-    def incremental_update(self, memories_dir: Optional[str | Path] = None) -> int:
+    def incremental_update(
+        self,
+        memories_dir: Optional[str | Path] = None,
+        facts_dir: Optional[str | Path] = None,
+        projects_dir: Optional[str | Path] = None,
+    ) -> int:
         """
         Incremental update: only process files modified since last index time.
         Also removes index entries for files that no longer exist.
+        Scans memories/, facts/, and projects/ directories.
 
-        Returns: number of memories updated
+        Returns: number of entries updated
         """
         mem_dir = Path(memories_dir) if memories_dir else self._memories_dir
         if mem_dir is None:
             raise ValueError(
                 "memories_dir must be provided either in constructor or incremental_update()"
             )
+        f_dir = Path(facts_dir) if facts_dir else self._facts_dir
+        p_dir = Path(projects_dir) if projects_dir else self._projects_dir
 
         # Get the last rebuild/update timestamp.
         row = self._db.execute(
@@ -328,45 +564,69 @@ class IndexManager:
         for sid in stale_ids:
             self.remove_from_index(sid)
 
-        # --- Index new/modified files ---
-        count = 0
-        if mem_dir.is_dir():
-            # Build a set of already-indexed file paths for quick lookup.
-            indexed_rows = self._db.execute(
-                "SELECT file_path, indexed_at FROM memory_index"
-            ).fetchall()
-            indexed_map: Dict[str, str] = {
-                r["file_path"]: (r["indexed_at"] or "") for r in indexed_rows
-            }
+        # --- Build indexed file map for mtime comparison ---
+        indexed_rows = self._db.execute(
+            "SELECT file_path, indexed_at FROM memory_index"
+        ).fetchall()
+        indexed_map: Dict[str, str] = {
+            r["file_path"]: (r["indexed_at"] or "") for r in indexed_rows
+        }
 
+        count = 0
+
+        def _needs_reindex(md_file: Path) -> bool:
+            """Return True if the file is new or modified since last index."""
+            resolved = str(md_file.resolve())
+            file_mtime = md_file.stat().st_mtime
+            if resolved in indexed_map:
+                indexed_at_str = indexed_map[resolved]
+                if indexed_at_str:
+                    try:
+                        indexed_at_ts = datetime.fromisoformat(
+                            indexed_at_str
+                        ).timestamp()
+                    except (ValueError, TypeError):
+                        indexed_at_ts = 0.0
+                else:
+                    indexed_at_ts = 0.0
+                if file_mtime <= indexed_at_ts:
+                    return False
+            return True
+
+        # --- Memories ---
+        if mem_dir.is_dir():
             for md_file in sorted(mem_dir.glob("*.md")):
                 try:
-                    resolved = str(md_file.resolve())
-                    file_mtime = md_file.stat().st_mtime
-
-                    # Decide whether to (re-)index this file.
-                    if resolved in indexed_map:
-                        indexed_at_str = indexed_map[resolved]
-                        if indexed_at_str:
-                            try:
-                                indexed_at_ts = datetime.fromisoformat(
-                                    indexed_at_str
-                                ).timestamp()
-                            except (ValueError, TypeError):
-                                indexed_at_ts = 0.0
-                        else:
-                            indexed_at_ts = 0.0
-
-                        if file_mtime <= indexed_at_ts:
-                            # File hasn't been modified since last indexing.
-                            continue
-
-                    # Parse to verify it's a memory file.
+                    if not _needs_reindex(md_file):
+                        continue
                     meta, _ = parse_frontmatter(md_file)
                     if "id" not in meta:
                         continue
-
                     self.index_memory(md_file)
+                    count += 1
+                except Exception:
+                    continue
+
+        # --- Facts ---
+        if f_dir and f_dir.is_dir():
+            for md_file in sorted(f_dir.glob("*.md")):
+                try:
+                    if not _needs_reindex(md_file):
+                        continue
+                    count += self.index_facts_file(md_file)
+                except Exception:
+                    continue
+
+        # --- Projects ---
+        if p_dir and p_dir.is_dir():
+            for md_file in sorted(p_dir.glob("*.md")):
+                try:
+                    if not _needs_reindex(md_file):
+                        continue
+                    meta, _ = parse_frontmatter(md_file)
+                    if "id" not in meta:
+                        continue
+                    self.index_project_file(md_file)
                     count += 1
                 except Exception:
                     continue

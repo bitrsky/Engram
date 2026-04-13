@@ -11,7 +11,7 @@ the heuristic patterns matched (or missed).
 Learned patterns go through a two-stage promotion pipeline:
 
     1. candidate  — first seen, stored in ``[_candidates]``, hits = 1
-    2. active     — hits >= PROMOTION_THRESHOLD → promoted to real pattern
+    2. active     — hits >= promotion_threshold → promoted to real pattern
 
 Storage: ``~/.engram/learned_patterns.toml``
 """
@@ -35,7 +35,8 @@ logger = logging.getLogger(__name__)
 # ── Promotion threshold ─────────────────────────────────────────────────────
 # A candidate keyword must be seen this many times before it becomes an
 # active pattern.  Prevents one-off anomalies from polluting patterns.
-PROMOTION_THRESHOLD = 3
+# Override via config.toml: [learning] promotion_threshold = 3
+_DEFAULT_PROMOTION_THRESHOLD = 2
 
 # ── Predicate → pattern category mapping ────────────────────────────────────
 # Maps LLM-extracted predicate names to which quality-gate category they
@@ -206,7 +207,8 @@ def learn_from_extraction(
                         changed = True
 
     # Promote candidates that crossed the threshold
-    promoted = _promote_candidates(state, today)
+    threshold = config.promotion_threshold
+    promoted = _promote_candidates(state, today, threshold)
     result.promoted = len(promoted)
     if promoted:
         changed = True
@@ -271,7 +273,8 @@ def _extract_keywords(
     tokens = _tokenize(cleaned)
 
     # Filter stop words and too-short tokens
-    tokens = [t for t in tokens if t.lower() not in _STOP_WORDS and len(t) >= _MIN_KEYWORD_LEN]
+    tokens = [t for t in tokens if t.lower() not in _STOP_WORDS
+              and (len(t) >= _MIN_KEYWORD_LEN or _is_cjk_char(t[0]))]
 
     if not tokens:
         return []
@@ -498,9 +501,9 @@ def _upsert_candidate(
     return True
 
 
-def _promote_candidates(state: dict, today: str) -> List[Candidate]:
+def _promote_candidates(state: dict, today: str, threshold: int = _DEFAULT_PROMOTION_THRESHOLD) -> List[Candidate]:
     """
-    Promote candidates with hits >= PROMOTION_THRESHOLD to active patterns.
+    Promote candidates with hits >= threshold to active patterns.
     Returns the list of promoted candidates.
     """
     candidates = state.get("candidates", [])
@@ -509,7 +512,7 @@ def _promote_candidates(state: dict, today: str) -> List[Candidate]:
 
     remaining: List[dict] = []
     for cand_dict in candidates:
-        if cand_dict.get("hits", 0) >= PROMOTION_THRESHOLD:
+        if cand_dict.get("hits", 0) >= threshold:
             cand = Candidate.from_dict(cand_dict)
             # Add to active patterns
             section_active = active.setdefault(cand.section, {})

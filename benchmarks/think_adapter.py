@@ -160,16 +160,21 @@ async def deep_search_agent(
         hit_id = getattr(hit, "id", f"hit_{i}")
         file_path = getattr(hit, "file_path", "") or ""
         topics = getattr(hit, "topics", []) or []
-        project = getattr(hit, "project", "") or ""
+        hit_project = getattr(hit, "project", "") or ""
         similarity = getattr(hit, "similarity", 0.0)
+        memory_type = getattr(hit, "memory_type", "conversation") or "conversation"
 
         hint_lines.append(
-            f"[{i+1}] id={hit_id} | similarity={similarity:.2f} | "
-            f"created={created} | project={project} | topics={topics}"
+            f"[{i+1}] type={memory_type} | id={hit_id} | similarity={similarity:.2f} | "
+            f"project={hit_project} | created={created}"
         )
         if file_path:
             hint_lines.append(f"    file: {file_path}")
-        hint_lines.append(f"    preview: {content}")
+        if memory_type == "fact":
+            # Facts are short — show full content
+            hint_lines.append(f"    fact: {hit.content.strip()}")
+        else:
+            hint_lines.append(f"    preview: {content}")
         hint_lines.append("")
 
     hints_block = "\n".join(hint_lines) if hint_lines else "(no vector results)"
