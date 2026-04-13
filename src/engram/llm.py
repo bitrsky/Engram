@@ -239,3 +239,173 @@ def extract_facts_via_callback(
         logger.debug("Fact extraction via callback failed: %s", exc)
 
     return []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Deep Search — Prompt & Response Parsing
+# ═══════════════════════════════════════════════════════════════════════════
+
+DEEP_SEARCH_SYSTEM = """\
+You are a memory search assistant. You have access to a personal knowledge base \
+stored on disk. The knowledge base has three layers:
+
+## Directory Structure
+
+  {base_dir}/
+  ├── identity.md              # User identity and preferences
+  ├── memories/                # Conversation memories (markdown)
+  │   ├── 2024-01-15_auth-decision.md
+  │   └── ...
+  ├── facts/                   # Knowledge graph (per-project)
+  │   ├── project-name.md      # Facts as subject|predicate|object triples
+  │   └── ...
+  └── projects/                # Project registry
+      ├── project-name.md      # Project metadata, status, aliases
+      └── ...
+
+## File Formats
+
+### memories/*.md
+YAML frontmatter with id, project, topics, memory_type, importance, created.
+Body contains the raw conversation or note text.
+Example frontmatter:
+  ---
+  id: session_5
+  project: my-project
+  topics: [auth, infrastructure]
+  memory_type: decision
+  importance: 4.0
+  created: 2024-01-15T14:23:00
+  ---
+  We decided to use Clerk for authentication because...
+
+### facts/*.md
+Knowledge graph stored as structured lines:
+  - subject | predicate | object | since: YYYY-MM | confidence: 0.95
+    - source: mem_xxx
+Sections: ## Current, ## Expired, ## Conflicts
+Use this to find factual relationships (who uses what, preferences, tech stack).
+
+### projects/*.md
+Project metadata: display_name, status (active/paused/archived), aliases.
+Use this to understand what projects exist and their current state.
+
+## Search Strategy
+
+1. Check the vector search hints first — they may already contain the answer.
+2. For factual questions (what does X use, who prefers Y), check facts/ first.
+3. For event/conversation questions, grep or read memories/.
+4. Use grep to search across files efficiently, then read specific files.
+
+## Response Format (MUST follow exactly)
+
+ANSWER: {{your answer}}
+EVIDENCE: {{comma-separated memory IDs (e.g. session_5, session_12) or fact file names}}
+
+If not found:
+ANSWER: NOT_FOUND
+EVIDENCE: none
+"""
+
+
+def build_deep_search_prompt(
+    query: str,
+    base_dir: str,
+    vector_hits: list,
+) -> tuple[str, str]:
+    """Build system prompt and user prompt for deep search.
+
+    Args:
+        query: The user's question.
+        base_dir: Path to the engram base directory (e.g. ~/.engram).
+        vector_hits: Vector search top-K results (SearchHit objects).
+
+    Returns:
+        (system_prompt, user_prompt) tuple.
+    """
+    system = DEEP_SEARCH_SYSTEM.format(base_dir=base_dir)
+
+    # Build vector search hints
+    hint_lines = []
+    for i, hit in enumerate(vector_hits[:10]):
+        content = hit.content.strip()
+        if len(content) > 300:
+            content = content[:300] + "..."
+        created = getattr(hit, "created", "") or ""
+        hit_id = getattr(hit, "id", f"hit_{i}")
+        file_path = getattr(hit, "file_path", "") or ""
+        hit_project = getattr(hit, "project", "") or ""
+        similarity = getattr(hit, "similarity", 0.0)
+        memory_type = getattr(hit, "memory_type", "conversation") or "conversation"
+
+        hint_lines.append(
+            f"[{i+1}] type={memory_type} | id={hit_id} | similarity={similarity:.2f} | "
+            f"project={hit_project} | created={created}"
+        )
+        if file_path:
+            hint_lines.append(f"    file: {file_path}")
+        if memory_type == "fact":
+            hint_lines.append(f"    fact: {hit.content.strip()}")
+        else:
+            hint_lines.append(f"    preview: {content}")
+        hint_lines.append("")
+
+    hints_block = "\n".join(hint_lines) if hint_lines else "(no vector results)"
+
+    user_prompt = (
+        f"Question: {query}\n\n"
+        f"=== Vector search hints (ranked by semantic similarity) ===\n"
+        f"{hints_block}\n\n"
+        f"Each hint includes a file path — you can use read to get the full content.\n"
+        f"If the hints answer the question, respond with the memory IDs.\n"
+        f"Otherwise, search the knowledge base at {base_dir}:\n"
+        f"- grep in memories/ for keywords\n"
+        f"- check facts/ for factual relationships\n"
+        f"- read specific files for full context\n"
+        f"EVIDENCE must list memory IDs (like session_5), not filenames."
+    )
+
+    return system, user_prompt
+
+
+def parse_deep_search_response(response: str) -> dict:
+    """Parse a deep search LLM response.
+
+    Extracts ANSWER and EVIDENCE fields from the response text.
+
+    Args:
+        response: Raw LLM response containing ANSWER: and EVIDENCE: lines.
+
+    Returns:
+        dict with keys:
+            - "answer": str (the answer text, or "NOT_FOUND")
+            - "evidence": list[str] (memory IDs or fact file names)
+            - "found": bool (True if answer is not NOT_FOUND)
+            - "raw": str (original response)
+    """
+    if not response:
+        return {"answer": "NOT_FOUND", "evidence": [], "found": False, "raw": ""}
+
+    answer = "NOT_FOUND"
+    evidence: List[str] = []
+
+    # Extract ANSWER line
+    answer_match = re.search(r"ANSWER:\s*(.+?)(?:\n|$)", response, re.IGNORECASE)
+    if answer_match:
+        answer = answer_match.group(1).strip()
+
+    # Extract EVIDENCE line
+    evidence_match = re.search(r"EVIDENCE:\s*(.+?)(?:\n|$)", response, re.IGNORECASE)
+    if evidence_match:
+        raw_evidence = evidence_match.group(1).strip()
+        if raw_evidence.lower() != "none":
+            evidence = [e.strip() for e in raw_evidence.split(",") if e.strip()]
+
+    found = answer.upper() != "NOT_FOUND" and bool(answer)
+
+    return {
+        "answer": answer,
+        "evidence": evidence,
+        "found": found,
+        "raw": response,
+    }

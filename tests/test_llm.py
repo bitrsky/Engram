@@ -1,7 +1,7 @@
 ﻿"""
 test_llm.py -- Unit tests for the LLM callback protocol and prompt builders.
 
-Tests query rewrite, reranking via callback, temporal reasoning, and fact
+Tests temporal reasoning and fact
 extraction via callback â€” all with mocked LLM functions (no real LLM needed).
 """
 
@@ -74,202 +74,6 @@ class TestThinkFnProtocol:
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Query Rewrite
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-
-class TestRewriteQuery:
-    """Test query rewrite via LLM callback."""
-
-    def test_basic_rewrite(self):
-        from engram.llm import rewrite_query
-
-        think_fn = make_think_fn("authentication provider choices Clerk Auth0 comparison")
-        result = rewrite_query("what auth?", think_fn)
-        assert "Clerk" in result or "auth" in result.lower()
-        assert result != "what auth?"
-
-    def test_rewrite_strips_quotes(self):
-        from engram.llm import rewrite_query
-
-        think_fn = make_think_fn('"expanded query about databases"')
-        result = rewrite_query("db?", think_fn)
-        assert not result.startswith('"')
-        assert not result.endswith('"')
-
-    def test_rewrite_returns_original_on_failure(self):
-        from engram.llm import rewrite_query
-
-        think_fn = make_failing_think_fn()
-        result = rewrite_query("what auth?", think_fn)
-        assert result == "what auth?"
-
-    def test_rewrite_returns_original_on_none(self):
-        from engram.llm import rewrite_query
-
-        think_fn = make_none_think_fn()
-        result = rewrite_query("what auth?", think_fn)
-        assert result == "what auth?"
-
-    def test_rewrite_returns_original_on_empty(self):
-        from engram.llm import rewrite_query
-
-        think_fn = make_think_fn("")
-        result = rewrite_query("what auth?", think_fn)
-        assert result == "what auth?"
-
-    def test_rewrite_returns_original_on_too_long(self):
-        from engram.llm import rewrite_query
-
-        think_fn = make_think_fn("x" * 600)
-        result = rewrite_query("what auth?", think_fn)
-        assert result == "what auth?"
-
-    def test_rewrite_returns_original_on_too_short(self):
-        from engram.llm import rewrite_query
-
-        think_fn = make_think_fn("ab")
-        result = rewrite_query("what auth?", think_fn)
-        assert result == "what auth?"
-
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# Reranking via Callback
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-
-class TestRerankWithLLM:
-    """Test reranking via LLM callback."""
-
-    def test_basic_rerank(self):
-        from engram.llm import rerank_with_llm
-
-        candidates = [
-            MockSearchHit(id="a", content="Document A"),
-            MockSearchHit(id="b", content="Document B"),
-            MockSearchHit(id="c", content="Document C"),
-            MockSearchHit(id="d", content="Document D"),
-            MockSearchHit(id="e", content="Document E"),
-        ]
-
-        think_fn = make_think_fn("[3, 5, 1]")
-        result = rerank_with_llm("test query", candidates, think_fn, top_k=3)
-
-        assert len(result) == 3
-        assert result[0].id == "c"  # index 3 -> 0-based 2
-        assert result[1].id == "e"  # index 5 -> 0-based 4
-        assert result[2].id == "a"  # index 1 -> 0-based 0
-
-    def test_rerank_fallback_on_failure(self):
-        from engram.llm import rerank_with_llm
-
-        candidates = [
-            MockSearchHit(id="a", content="Doc A"),
-            MockSearchHit(id="b", content="Doc B"),
-            MockSearchHit(id="c", content="Doc C"),
-        ]
-
-        think_fn = make_failing_think_fn()
-        result = rerank_with_llm("test", candidates, think_fn, top_k=2)
-
-        assert len(result) == 2
-        assert result[0].id == "a"
-        assert result[1].id == "b"
-
-    def test_rerank_fallback_on_none(self):
-        from engram.llm import rerank_with_llm
-
-        candidates = [
-            MockSearchHit(id="a", content="Doc A"),
-            MockSearchHit(id="b", content="Doc B"),
-        ]
-
-        think_fn = make_none_think_fn()
-        result = rerank_with_llm("test", candidates, think_fn, top_k=2)
-
-        assert len(result) == 2
-        assert result[0].id == "a"
-
-    def test_rerank_fills_remaining(self):
-        from engram.llm import rerank_with_llm
-
-        candidates = [
-            MockSearchHit(id="a", content="Doc A"),
-            MockSearchHit(id="b", content="Doc B"),
-            MockSearchHit(id="c", content="Doc C"),
-            MockSearchHit(id="d", content="Doc D"),
-        ]
-
-        # LLM returns only 2 indices but we want 4
-        think_fn = make_think_fn("[3, 1]")
-        result = rerank_with_llm("test", candidates, think_fn, top_k=4)
-
-        assert len(result) == 4
-        assert result[0].id == "c"
-        assert result[1].id == "a"
-        # Remaining filled from original order
-        assert result[2].id == "b"
-        assert result[3].id == "d"
-
-    def test_rerank_empty_candidates(self):
-        from engram.llm import rerank_with_llm
-
-        think_fn = make_think_fn("[1, 2]")
-        result = rerank_with_llm("test", [], think_fn, top_k=2)
-        assert result == []
-
-    def test_rerank_markdown_wrapped_response(self):
-        from engram.llm import rerank_with_llm
-
-        candidates = [
-            MockSearchHit(id="a", content="Doc A"),
-            MockSearchHit(id="b", content="Doc B"),
-            MockSearchHit(id="c", content="Doc C"),
-        ]
-
-        think_fn = make_think_fn("```json\n[2, 3, 1]\n```")
-        result = rerank_with_llm("test", candidates, think_fn, top_k=3)
-
-        assert result[0].id == "b"
-        assert result[1].id == "c"
-        assert result[2].id == "a"
-
-
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# Parse Rerank Indices
-# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-
-class TestParseRerankIndices:
-    """Test the internal index parser."""
-
-    def test_clean_json(self):
-        from engram.llm import _parse_rerank_indices
-
-        result = _parse_rerank_indices("[3, 1, 5, 2, 4]", n_candidates=10, top_k=5)
-        assert result == [2, 0, 4, 1, 3]
-
-    def test_text_with_numbers(self):
-        from engram.llm import _parse_rerank_indices
-
-        result = _parse_rerank_indices(
-            "Most relevant: 3, 1, 5", n_candidates=10, top_k=5
-        )
-        assert result == [2, 0, 4]
-
-    def test_out_of_range_filtered(self):
-        from engram.llm import _parse_rerank_indices
-
-        result = _parse_rerank_indices("[3, 15, 1]", n_candidates=10, top_k=5)
-        assert result == [2, 0]
-
-    def test_empty_response(self):
-        from engram.llm import _parse_rerank_indices
-
-        assert _parse_rerank_indices("", n_candidates=10, top_k=5) is None
-
-    def test_no_numbers(self):
-        from engram.llm import _parse_rerank_indices
-
-        assert _parse_rerank_indices("I cannot rank", n_candidates=10, top_k=5) is None
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -453,57 +257,84 @@ class TestExtractFactsViaCallback:
 # ===========================================================================
 
 
-class TestDeepSearch:
-    """Test the deep_search() function."""
+class TestBuildDeepSearchPrompt:
+    def test_returns_system_and_user(self):
+        from engram.llm import build_deep_search_prompt
 
-    def test_deep_search_finds_answer(self):
-        from engram.llm import deep_search_simple as deep_search
+        system, user = build_deep_search_prompt(
+            query="What database does Alice use?",
+            base_dir="/home/user/.engram",
+            vector_hits=[],
+        )
+        assert "/home/user/.engram" in system
+        assert "memories/" in system
+        assert "facts/" in system
+        assert "projects/" in system
+        assert "What database does Alice use?" in user
 
-        hits = [MockSearchHit(id="session_5", content="Alice went to the park")]
-        listing = [
-            {"filename": "session_1.md", "id": "session_1", "created": "2024-01-01",
-             "preview": "Hi there!", "content": "Hi there! Long time no see."},
-            {"filename": "session_2.md", "id": "session_2", "created": "2024-01-15",
-             "preview": "Caroline research", "content": "Caroline told me about her research on climate change."},
+    def test_includes_vector_hints(self):
+        from engram.llm import build_deep_search_prompt
+        from engram.index import SearchHit
+
+        hits = [
+            SearchHit(
+                id="session_5", content="Alice uses PostgreSQL for the main DB",
+                similarity=0.85, project="myproj", topics=["db"],
+                memory_type="conversation", importance=3.0,
+                created="2025-01-15", file_path="/path/to/session_5.md",
+            ),
+            SearchHit(
+                id="fact_myproj_abc123", content="Alice uses_database PostgreSQL",
+                similarity=0.92, project="myproj", topics=[],
+                memory_type="fact", importance=5.0,
+                created="2025-01", file_path="/path/to/facts/myproj.md",
+            ),
         ]
 
-        def mock_think(prompt, system="", **kw):
-            return "Caroline researched climate change. Evidence found in session_2.md."
+        system, user = build_deep_search_prompt(
+            query="What database?",
+            base_dir="/tmp/engram",
+            vector_hits=hits,
+        )
+        # Should have both hits in the prompt
+        assert "session_5" in user
+        assert "type=conversation" in user
+        assert "type=fact" in user
+        assert "fact: Alice uses_database PostgreSQL" in user
+        assert "preview:" in user  # conversation hit has preview
 
-        result = deep_search("What did Caroline research?", mock_think, hits, listing)
-        assert result is not None
-        assert "climate change" in result
 
-    def test_deep_search_returns_none_on_not_found(self):
-        from engram.llm import deep_search_simple as deep_search
+class TestParseDeepSearchResponse:
+    def test_parse_found(self):
+        from engram.llm import parse_deep_search_response
 
-        listing = [
-            {"filename": "session_1.md", "id": "s1", "created": "2024-01-01",
-             "preview": "Hello", "content": "Hello world"},
-        ]
+        response = (
+            "Based on the memories, Alice switched to PostgreSQL.\n\n"
+            "ANSWER: PostgreSQL\n"
+            "EVIDENCE: session_5, session_12"
+        )
+        parsed = parse_deep_search_response(response)
+        assert parsed["found"] is True
+        assert parsed["answer"] == "PostgreSQL"
+        assert parsed["evidence"] == ["session_5", "session_12"]
 
-        def mock_think(prompt, system="", **kw):
-            return "NOT_FOUND"
+    def test_parse_not_found(self):
+        from engram.llm import parse_deep_search_response
 
-        result = deep_search("What is the meaning of life?", mock_think, [], listing)
-        assert result is None
+        response = "ANSWER: NOT_FOUND\nEVIDENCE: none"
+        parsed = parse_deep_search_response(response)
+        assert parsed["found"] is False
+        assert parsed["evidence"] == []
 
-    def test_deep_search_returns_none_on_empty_listing(self):
-        from engram.llm import deep_search_simple as deep_search
+    def test_parse_empty(self):
+        from engram.llm import parse_deep_search_response
 
-        def mock_think(prompt, system="", **kw):
-            return "Some answer"
+        parsed = parse_deep_search_response("")
+        assert parsed["found"] is False
+        assert parsed["answer"] == "NOT_FOUND"
 
-        result = deep_search("query", mock_think, [], [])
-        assert result is None
+    def test_parse_none(self):
+        from engram.llm import parse_deep_search_response
 
-    def test_deep_search_returns_none_on_failure(self):
-        from engram.llm import deep_search_simple as deep_search
-
-        listing = [{"filename": "a.md", "id": "a", "created": "", "preview": "x", "content": "x"}]
-
-        def failing_think(prompt, system="", **kw):
-            raise RuntimeError("boom")
-
-        result = deep_search("query", failing_think, [], listing)
-        assert result is None
+        parsed = parse_deep_search_response(None)
+        assert parsed["found"] is False

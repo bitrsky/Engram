@@ -122,7 +122,6 @@ def _sessions_to_documents(entry: dict) -> List[Tuple[str, str]]:
 def evaluate_single_question(
     entry: dict,
     k_values: List[int],
-    use_rerank: bool = False,
 ) -> Optional[dict]:
     """
     Evaluate Engram retrieval on a single LongMemEval question.
@@ -133,7 +132,6 @@ def evaluate_single_question(
     Args:
         entry: LongMemEval question entry
         k_values: K values for recall metrics
-        use_rerank: If True, use LLM reranking (requires LLM config)
 
     Returns a result dict or None if the question should be skipped.
     """
@@ -184,6 +182,8 @@ def evaluate_single_question(
         mgr = IndexManager(
             index_dir=config.index_dir,
             memories_dir=config.memories_dir,
+            facts_dir=config.facts_dir,
+            projects_dir=config.projects_dir,
         )
 
         # Ingest each session as a separate memory
@@ -204,13 +204,7 @@ def evaluate_single_question(
 
         # --- Query ---
         max_k = max(k_values)
-        if use_rerank:
-            hits = mgr.vector_search_reranked(
-                query=question, config=config, n=max_k,
-                candidates=config.rerank_candidates,
-            )
-        else:
-            hits = mgr.vector_search(query=question, n=max_k)
+        hits = mgr.vector_search(query=question, n=max_k)
         retrieved_ids = [h.id for h in hits]
 
         # Map memory IDs back to session IDs for comparison
@@ -261,7 +255,6 @@ def run_benchmark(
     k_values: Optional[List[int]] = None,
     limit: int = 0,
     skip_types: Optional[List[str]] = None,
-    use_rerank: bool = False,
 ) -> Tuple[List[dict], dict]:
     """
     Run the full LongMemEval benchmark.
@@ -271,7 +264,6 @@ def run_benchmark(
         k_values: List of K values for Recall@K (default: [3, 5, 10])
         limit: Max questions to evaluate (0 = all)
         skip_types: Question types to skip
-        use_rerank: If True, use LLM reranking
 
     Returns:
         (results_list, summary_dict)
@@ -287,7 +279,6 @@ def run_benchmark(
     print(f"Variant:    longmemeval_{variant}")
     print(f"K values:   {k_values}")
     print(f"Limit:      {limit or 'all'}")
-    print(f"Rerank:     {'ON' if use_rerank else 'OFF'}")
     print(f"Time:       {datetime.now().isoformat()}")
     print(f"{'='*60}\n")
 
@@ -319,7 +310,7 @@ def run_benchmark(
             rate = (i + 1) / elapsed if elapsed > 0 else 0
             print(f"  [{i+1}/{len(data)}] {rate:.1f} q/s -- {qid} ({qtype})")
 
-        result = evaluate_single_question(entry, k_values, use_rerank=use_rerank)
+        result = evaluate_single_question(entry, k_values)
         if result is None:
             skipped += 1
             continue
@@ -341,7 +332,6 @@ def run_benchmark(
         "total_questions": len(data),
         "evaluated": len(results),
         "skipped": skipped,
-        "rerank": use_rerank,
         "elapsed_seconds": round(elapsed_total, 1),
         "timestamp": datetime.now().isoformat(),
         "overall": {},
@@ -445,15 +435,9 @@ def main():
         default=0,
         help="Max questions to evaluate (0 = all)",
     )
-    parser.add_argument(
-        "--rerank",
-        action="store_true",
-        help="Enable LLM reranking (requires LLM config)",
-    )
     args = parser.parse_args()
     run_benchmark(
         variant=args.variant, k_values=args.k, limit=args.limit,
-        use_rerank=args.rerank,
     )
 
 

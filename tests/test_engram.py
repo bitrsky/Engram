@@ -97,9 +97,6 @@ class TestConfig:
         assert config.facts_dir == engram_dir / "facts"
         assert config.index_dir == engram_dir / ".index"
 
-    def test_rerank_enabled_default(self, config):
-        assert config.rerank_enabled is True
-
 
 class TestStore:
     """Test Markdown store operations."""

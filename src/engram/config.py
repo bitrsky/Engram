@@ -292,9 +292,6 @@ class EngramConfig:
         patterns_path  — ~/.engram/patterns.toml
 
     LLM feature toggles:
-        rerank_enabled           -- enable LLM reranking (default: True)
-        rerank_candidates        -- how many vector candidates to rerank (default: 20)
-        query_rewrite_enabled    -- expand queries before search (default: False)
         temporal_reasoning_enabled -- LLM time reasoning (default: True)
     """
 

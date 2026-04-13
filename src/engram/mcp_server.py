@@ -52,8 +52,8 @@ _think_fn = None
 def set_think_fn(fn) -> None:
     """Inject an agent thinking function to upgrade engram's capabilities.
 
-    When set, engram will use this function for search reranking, query
-    rewriting, temporal reasoning, and fact extraction.  This is the
+    When set, engram will use this function for temporal reasoning
+    and fact extraction.  This is the
     preferred integration path when engram runs inside an AI agent
     (e.g. echo-code) that already has inference capability.
 

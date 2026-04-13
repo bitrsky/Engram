@@ -364,22 +364,12 @@ class MemoryStack:
             return "No query provided."
 
         try:
-            if self._config.rerank_enabled:
-                hits = self.index.vector_search_reranked(
-                    query=query,
-                    config=self._config,
-                    project=project,
-                    topics=topics,
-                    n=n,
-                    think_fn=self._think_fn,
-                )
-            else:
-                hits = self.index.vector_search(
-                    query=query,
-                    project=project,
-                    topics=topics,
-                    n=n,
-                )
+            hits = self.index.vector_search(
+                query=query,
+                project=project,
+                topics=topics,
+                n=n,
+            )
 
             if not hits:
                 scope = f" in project '{project}'" if project else ""

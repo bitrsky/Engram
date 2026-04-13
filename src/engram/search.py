@@ -58,7 +58,7 @@ def search(
 
     Flow:
     1. Query rewrite (optional, via think_fn)
-    2. Vector search via IndexManager (with optional reranking)
+    2. Vector search via IndexManager
     3. Update access stats for each hit
     4. Temporal reasoning (optional, via think_fn)
     5. For each hit, find related facts (by extracting entities from content)

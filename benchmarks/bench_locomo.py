@@ -17,9 +17,10 @@ This script:
   5. Saves results to benchmarks/results/
 
 Usage:
-    python -m benchmarks.bench_locomo                   # run all
+    python -m benchmarks.bench_locomo                   # vector search only
     python -m benchmarks.bench_locomo --limit 5         # first 5 conversations
     python -m benchmarks.bench_locomo --k 3 5 10 20     # custom K values
+    python -m benchmarks.bench_locomo --deep --think MODEL  # deep search
 
 Requires:  pip install engram[dev]
 """
@@ -82,8 +83,6 @@ def _extract_sessions(conversation: dict) -> List[Tuple[str, str, str]]:
     """
     sessions = []
 
-    # LoCoMo stores sessions as keys like "session_1", "session_2", ...
-    # and timestamps as "session_1_date_time", etc.
     session_keys = sorted(
         [k for k in conversation.keys()
          if re.match(r"session_\d+$", k)],
@@ -95,11 +94,9 @@ def _extract_sessions(conversation: dict) -> List[Tuple[str, str, str]]:
         if not isinstance(turns, list):
             continue
 
-        # Get timestamp
         date_key = f"{skey}_date_time"
         date_str = conversation.get(date_key, "")
 
-        # Build text from turns
         lines = []
         if date_str:
             lines.append(f"[Session date: {date_str}]")
@@ -125,14 +122,12 @@ def _evidence_to_session_ids(evidence_ids: List[str]) -> Set[str]:
     """
     session_ids = set()
     for eid in evidence_ids:
-        # Format: D{session}:{turn}
         eid = eid.strip()
         if eid.startswith("D"):
             parts = eid[1:].split(":")
             if parts and parts[0].isdigit():
                 session_ids.add(f"session_{parts[0]}")
         else:
-            # Fallback: try splitting on _ or :
             parts = eid.replace(":", "_").split("_")
             if parts and parts[0].isdigit():
                 session_ids.add(f"session_{parts[0]}")
@@ -188,10 +183,8 @@ def _build_result(
 def evaluate_conversation(
     sample: dict,
     k_values: List[int],
-    use_rerank: bool = False,
-    think_fn=None,
-    query_rewrite: bool = False,
     use_deep_search: bool = False,
+    think_model: str = "",
 ) -> List[dict]:
     """
     Evaluate Engram retrieval on all QA pairs from one LoCoMo conversation.
@@ -202,9 +195,8 @@ def evaluate_conversation(
     Args:
         sample: LoCoMo conversation sample
         k_values: K values for recall metrics
-        use_rerank: If True, use LLM reranking (requires LLM config or think_fn)
-        think_fn: Optional LLM callback (see engram.llm.ThinkFn)
-        query_rewrite: If True, enable query rewrite (requires think_fn)
+        use_deep_search: If True, use LLM agent deep search (requires think_model)
+        think_model: Model name for deep search (e.g. 'anthropic/claude-haiku-3-5-20241022')
 
     Returns list of per-question result dicts.
     """
@@ -237,28 +229,15 @@ def evaluate_conversation(
         (engram_dir / "facts").mkdir()
         (engram_dir / ".index").mkdir()
 
-        # Build config YAML based on flags
-        config_lines = ["llm:", "  provider: none"]
-        if use_rerank:
-            config_lines.append("  rerank: true")
-            config_lines.append("  rerank_candidates: 20")
-        if query_rewrite:
-            config_lines.append("  query_rewrite: true")
+        # Minimal config
         (engram_dir / "config.yaml").write_text(
-            "\n".join(config_lines) + "\n", encoding="utf-8"
+            "llm:\n  provider: none\n", encoding="utf-8"
         )
         (engram_dir / "identity.md").write_text(
             "---\nname: LoCoMo Bench\n---\n", encoding="utf-8"
         )
 
         config = EngramConfig(base_dir=str(engram_dir))
-
-        # Override rerank_enabled if think_fn provided (even when provider=none)
-        if think_fn and use_rerank:
-            # Force rerank on: provider is "none" so config.rerank_enabled=False,
-            # but we have think_fn so we manually set it via env override
-            import os
-            os.environ["ENGRAM_RERANK"] = "1"
 
         mgr = IndexManager(
             index_dir=config.index_dir,
@@ -286,7 +265,7 @@ def evaluate_conversation(
         memory_to_session = {v: k for k, v in session_key_to_memory_id.items()}
         max_k = max(k_values)
 
-        # Evaluate each QA pair — parallel when using LLM, serial otherwise
+        # Prepare QA tasks (skip adversarial — no evidence)
         qa_tasks = []
         for qa in qa_pairs:
             question = qa.get("question", "")
@@ -295,71 +274,55 @@ def evaluate_conversation(
             evidence_ids = qa.get("evidence", [])
 
             category = _normalise_category(raw_category)
-
-            # Skip adversarial (no evidence to retrieve)
             if category == "adversarial":
                 continue
 
-            # Map evidence dialog IDs -> session IDs
             evidence_session_ids = _evidence_to_session_ids(evidence_ids)
             if not evidence_session_ids:
                 continue
 
             qa_tasks.append((question, answer, category, evidence_session_ids))
 
-        def _eval_one_sync(task):
-            """Evaluate one QA pair (no LLM calls)."""
-            question, answer, category, evidence_session_ids = task
-            search_query = question
+        # --- Vector search only (no LLM) ---
+        if not use_deep_search:
+            for task in qa_tasks:
+                question, answer, category, evidence_session_ids = task
+                hits = mgr.vector_search(query=question, n=max_k)
+                results.append(_build_result(
+                    sample_id, question, answer, category, evidence_session_ids,
+                    hits, sessions, memory_to_session, k_values,
+                ))
 
-            if use_rerank:
-                hits = mgr.vector_search_reranked(
-                    query=search_query, config=config, n=max_k,
-                    candidates=config.rerank_candidates,
-                )
-            else:
-                hits = mgr.vector_search(query=search_query, n=max_k)
+        # --- Deep search (LLM agent) ---
+        else:
+            import asyncio as _aio
+            from engram.llm import build_deep_search_prompt, parse_deep_search_response
+            from benchmarks.think_adapter import create_think_fn
 
-            return _build_result(
-                sample_id, question, answer, category, evidence_session_ids,
-                hits, sessions, memory_to_session, k_values,
-            )
+            think_fn = create_think_fn(model=think_model)
 
-        async def _eval_one_async(task, sem, model):
-            """Evaluate one QA pair with async LLM calls."""
-            from benchmarks.think_adapter import async_think
-            question, answer, category, evidence_session_ids = task
-            search_query = question
-
-            if query_rewrite:
-                from engram.llm import _REWRITE_SYSTEM, _REWRITE_PROMPT
-                async with sem:
-                    rewritten = await async_think(
-                        _REWRITE_PROMPT.format(query=question),
-                        model=model, system=_REWRITE_SYSTEM,
-                    )
-                if rewritten and rewritten.strip() and 3 < len(rewritten.strip()) < 500:
-                    search_query = rewritten.strip().strip('"').strip("'")
-
-            if use_deep_search:
-                from benchmarks.think_adapter import deep_search_agent
+            async def _eval_one_deep(task, sem):
+                question, answer, category, evidence_session_ids = task
 
                 # Vector search for hints
-                raw_hits = mgr.vector_search(query=search_query, n=max_k)
+                raw_hits = mgr.vector_search(query=question, n=max_k)
 
-                # Agentic deep search — LLM uses tools to read memory files
+                # Build prompt from llm.py
+                system, user_prompt = build_deep_search_prompt(
+                    query=question,
+                    base_dir=str(Path(config.base_dir).resolve()),
+                    vector_hits=raw_hits,
+                )
+
+                # Agentic deep search via ThinkFn
                 async with sem:
-                    deep_answer = await deep_search_agent(
-                        query=question,
-                        model=model,
-                        base_dir=Path(config.base_dir),
-                        vector_hits=raw_hits,
-                        project="locomo",
-                    )
+                    deep_answer = await think_fn(user_prompt, system=system)
 
-                if deep_answer and "NOT_FOUND" not in deep_answer:
-                    # Extract session references (session_N pattern in filenames)
-                    found_sessions = set(re.findall(r'session_\d+', deep_answer))
+                parsed = parse_deep_search_response(deep_answer or "")
+
+                if parsed["found"]:
+                    # Extract session references from LLM response
+                    found_sessions = set(re.findall(r'session_\d+', deep_answer or ""))
                     seen = set()
                     hits = []
                     for sk in sorted(found_sessions):
@@ -385,71 +348,15 @@ def evaluate_conversation(
                 else:
                     hits = raw_hits[:max_k]
 
-            elif use_rerank:
-                raw_hits = mgr.vector_search(query=search_query, n=20)
-                if len(raw_hits) > max_k:
-                    from engram.llm import (
-                        _RERANK_SYSTEM, _MAX_DOC_CHARS,
-                        _parse_rerank_indices,
-                    )
-                    doc_lines = []
-                    for i, hit in enumerate(raw_hits):
-                        c = hit.content.replace("\n", " ").strip()
-                        if len(c) > _MAX_DOC_CHARS:
-                            c = c[:_MAX_DOC_CHARS] + "..."
-                        doc_lines.append(f"[{i+1}] {c}")
-                    docs_block = "\n".join(doc_lines)
-                    prompt = (
-                        f"Given a question and a list of documents, rank them by relevance.\n\n"
-                        f"Return ONLY a JSON array of document numbers (1-based), most relevant first. "
-                        f"Return the top {max_k} most relevant documents.\n\n"
-                        f"Example output: [3, 1, 7, 5, 2]\n\n"
-                        f"Question: {search_query}\n\nDocuments:\n{docs_block}\n\n"
-                        f"Output (top {max_k} document numbers, JSON array):"
-                    )
-                    async with sem:
-                        response = await async_think(
-                            prompt, model=model, system=_RERANK_SYSTEM,
-                        )
-                    if response:
-                        indices = _parse_rerank_indices(response, len(raw_hits), max_k)
-                        if indices:
-                            seen_idx = set()
-                            hits = []
-                            for idx in indices:
-                                if 0 <= idx < len(raw_hits) and idx not in seen_idx:
-                                    hits.append(raw_hits[idx])
-                                    seen_idx.add(idx)
-                                if len(hits) >= max_k:
-                                    break
-                            for i, h in enumerate(raw_hits):
-                                if i not in seen_idx:
-                                    hits.append(h)
-                                if len(hits) >= max_k:
-                                    break
-                        else:
-                            hits = raw_hits[:max_k]
-                    else:
-                        hits = raw_hits[:max_k]
-                else:
-                    hits = raw_hits
-            else:
-                hits = mgr.vector_search(query=search_query, n=max_k)
+                return _build_result(
+                    sample_id, question, answer, category, evidence_session_ids,
+                    hits, sessions, memory_to_session, k_values,
+                )
 
-            return _build_result(
-                sample_id, question, answer, category, evidence_session_ids,
-                hits, sessions, memory_to_session, k_values,
-            )
-
-        # Run: async parallel when LLM involved, sync serial otherwise
-        if think_fn and (use_deep_search or use_rerank or query_rewrite):
-            import asyncio as _aio
-            # Extract model name from think_fn (set by run_benchmark)
-            _model = getattr(think_fn, '_model', 'anthropic/claude-haiku-3-5-20241022')
             sem = _aio.Semaphore(10)
 
             async def _run_all():
-                tasks = [_eval_one_async(t, sem, _model) for t in qa_tasks]
+                tasks = [_eval_one_deep(t, sem) for t in qa_tasks]
                 return await _aio.gather(*tasks, return_exceptions=True)
 
             raw_results = _aio.run(_run_all())
@@ -457,15 +364,8 @@ def evaluate_conversation(
             errors = [r for r in raw_results if isinstance(r, Exception)]
             if errors:
                 print(f"    ! {len(errors)} QA pairs failed: {errors[0]}")
-        else:
-            results = [_eval_one_sync(t) for t in qa_tasks]
 
         mgr.close()
-
-        # Clean up env override
-        if think_fn and use_rerank:
-            import os
-            os.environ.pop("ENGRAM_RERANK", None)
 
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
@@ -476,9 +376,7 @@ def evaluate_conversation(
 def run_benchmark(
     k_values: Optional[List[int]] = None,
     limit: int = 0,
-    use_rerank: bool = False,
     think_model: str = "",
-    query_rewrite: bool = False,
     use_deep_search: bool = False,
 ) -> Tuple[List[dict], dict]:
     """
@@ -487,10 +385,8 @@ def run_benchmark(
     Args:
         k_values: K values for Recall@K (default: [3, 5, 10])
         limit: Max conversations to evaluate (0 = all)
-        use_rerank: If True, use LLM reranking
-        think_model: Model name for ThinkFn (e.g. "anthropic/claude-sonnet-4-20250514").
-                     Empty string = no LLM, heuristic only.
-        query_rewrite: If True, enable query rewriting via ThinkFn.
+        think_model: Model name for deep search. Empty = no LLM.
+        use_deep_search: If True, use LLM agent deep search (requires think_model).
 
     Returns:
         (results_list, summary_dict)
@@ -498,24 +394,14 @@ def run_benchmark(
     if k_values is None:
         k_values = [3, 5, 10]
 
-    # Build think_fn if model specified
-    think_fn = None
-    if think_model:
-        from .think_adapter import create_think_fn
-        think_fn = create_think_fn(model=think_model)
-        think_fn._model = think_model  # stash for async path
-        # Rerank is implied when think_fn is provided
-        use_rerank = True
-
     print(f"\n{'='*60}")
     print(f"LoCoMo Benchmark -- Engram Retrieval Evaluation")
     print(f"{'='*60}")
     print(f"K values:       {k_values}")
     print(f"Limit:          {limit or 'all (10 conversations)'}")
-    print(f"Rerank:         {'ON' if use_rerank else 'OFF'}")
-    print(f"Deep search:    {'ON' if use_deep_search else 'OFF'}")
-    print(f"ThinkFn model:  {think_model or '(none -- heuristic only)'}")
-    print(f"Query rewrite:  {'ON' if query_rewrite else 'OFF'}")
+    print(f"Mode:           {'Deep Search (LLM agent)' if use_deep_search else 'Vector Search Only'}")
+    if use_deep_search:
+        print(f"Model:          {think_model}")
     print(f"Time:           {datetime.now().isoformat()}")
     print(f"{'='*60}\n")
 
@@ -538,10 +424,8 @@ def run_benchmark(
 
         conv_results = evaluate_conversation(
             sample, k_values,
-            use_rerank=use_rerank,
-            think_fn=think_fn,
-            query_rewrite=query_rewrite,
             use_deep_search=use_deep_search,
+            think_model=think_model,
         )
         print(f"           -> {len(conv_results)} evaluated")
         all_results.extend(conv_results)
@@ -561,10 +445,8 @@ def run_benchmark(
         "dataset": "locomo",
         "total_qa": len(all_results),
         "n_conversations": len(data),
-        "rerank": use_rerank,
         "deep_search": use_deep_search,
         "think_model": think_model or "(none)",
-        "query_rewrite": query_rewrite,
         "elapsed_seconds": round(elapsed_total, 1),
         "timestamp": datetime.now().isoformat(),
         "overall": {},
@@ -657,35 +539,22 @@ def main():
         help="Max conversations to evaluate (0 = all 10)",
     )
     parser.add_argument(
-        "--rerank",
-        action="store_true",
-        help="Enable LLM reranking (auto-enabled when --think is set)",
-    )
-    parser.add_argument(
         "--think",
         type=str,
         default="",
         metavar="MODEL",
-        help="Enable ThinkFn via EchoCodeClient with this model "
-             "(e.g. anthropic/claude-sonnet-4-20250514)",
-    )
-    parser.add_argument(
-        "--query-rewrite",
-        action="store_true",
-        help="Enable query rewriting via ThinkFn (requires --think)",
+        help="Model for deep search (e.g. anthropic/claude-haiku-3-5-20241022)",
     )
     parser.add_argument(
         "--deep",
         action="store_true",
-        help="Enable LLM deep search (requires --think). LLM reads all memories directly.",
+        help="Enable LLM deep search (requires --think). LLM reads memory files directly.",
     )
     args = parser.parse_args()
     run_benchmark(
         k_values=args.k,
         limit=args.limit,
-        use_rerank=args.rerank,
         think_model=args.think,
-        query_rewrite=args.query_rewrite,
         use_deep_search=args.deep,
     )
 
