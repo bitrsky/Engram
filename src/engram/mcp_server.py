@@ -22,7 +22,7 @@ Write tools:
 
 import json
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -107,8 +107,8 @@ def engram_status() -> str:
 @mcp.tool()
 def engram_search(
     query: str,
-    project: str = None,
-    topics: str = None,
+    project: Optional[str] = None,
+    topics: Optional[str] = None,
     n: int = 5,
 ) -> str:
     """Semantic search across all memories. Returns enriched results with
@@ -147,9 +147,9 @@ def engram_search(
 @mcp.tool()
 def engram_recall(
     message: str,
-    project: str = None,
-    topic: str = None,
-    cwd: str = None,
+    project: Optional[str] = None,
+    topic: Optional[str] = None,
+    cwd: Optional[str] = None,
     n: int = 3,
 ) -> str:
     """Contextual recall (L2) — automatically find memories relevant to
@@ -179,8 +179,8 @@ def engram_recall(
 
 @mcp.tool()
 def engram_facts(
-    project: str = None,
-    entity: str = None,
+    project: Optional[str] = None,
+    entity: Optional[str] = None,
 ) -> str:
     """Get active facts for a project or entity. Returns structured
     fact triples (subject → predicate → object) with confidence and dates.
@@ -233,7 +233,7 @@ def engram_facts(
 
 @mcp.tool()
 def engram_timeline(
-    project: str = None,
+    project: Optional[str] = None,
     limit: int = 10,
 ) -> str:
     """Recent memories timeline — shows the most recent memories
@@ -285,7 +285,7 @@ def engram_timeline(
 
 @mcp.tool()
 def engram_conflicts(
-    project: str = None,
+    project: Optional[str] = None,
 ) -> str:
     """List all unresolved fact conflicts. Conflicts arise when two facts
     contradict each other and couldn't be auto-resolved.
@@ -325,7 +325,7 @@ def engram_conflicts(
 
 @mcp.tool()
 def engram_list_projects(
-    status: str = None,
+    status: Optional[str] = None,
 ) -> str:
     """List all known projects with their status and last activity date.
 
@@ -366,8 +366,8 @@ def engram_list_projects(
 
 @mcp.tool()
 def engram_wake_up(
-    project: str = None,
-    cwd: str = None,
+    project: Optional[str] = None,
+    cwd: Optional[str] = None,
 ) -> str:
     """Session startup — call this at the beginning of every session.
     Returns combined L0 (identity) + L1 (working set) context including:
@@ -397,8 +397,8 @@ def engram_wake_up(
 @mcp.tool()
 def engram_remember(
     content: str,
-    project: str = None,
-    topics: str = None,
+    project: Optional[str] = None,
+    topics: Optional[str] = None,
     memory_type: str = "note",
     source: str = "mcp",
 ) -> str:

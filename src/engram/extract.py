@@ -33,9 +33,9 @@ class FactCandidate:
 
 def extract_facts(
     content: str,
-    project: str = None,
-    existing_facts: List[Fact] = None,
-    config: EngramConfig = None,
+    project: Optional[str] = None,
+    existing_facts: Optional[List[Fact]] = None,
+    config: Optional[EngramConfig] = None,
     think_fn=None,
 ) -> List[FactCandidate]:
     """
@@ -62,7 +62,7 @@ def extract_facts(
         try:
             from .llm import extract_facts_via_callback
             return extract_facts_via_callback(
-                content, think_fn, project=project, existing_facts=existing_facts,
+                content, think_fn, project=project or "", existing_facts=existing_facts or [],
             )
         except Exception:
             pass  # Fall through to heuristic
@@ -71,7 +71,7 @@ def extract_facts(
     return extract_facts_heuristic(content, project)
 
 
-def extract_facts_heuristic(content: str, project: str = None) -> List[FactCandidate]:
+def extract_facts_heuristic(content: str, project: Optional[str] = None) -> List[FactCandidate]:
     """
     Extract facts using regex pattern matching.
 

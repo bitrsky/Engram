@@ -31,7 +31,7 @@ def _default_projects_dir() -> Path:
     return EngramConfig().projects_dir
 
 
-def _resolve_projects_dir(projects_dir: str | Path = None) -> Path:
+def _resolve_projects_dir(projects_dir: Optional[str | Path] = None) -> Path:
     """Resolve projects directory, creating it if needed."""
     if projects_dir is None:
         projects_dir = _default_projects_dir()
@@ -70,10 +70,10 @@ def create_project(
     project_id: str,
     display_name: str,
     description: str = "",
-    aliases: List[str] = None,
-    associated_paths: List[str] = None,
-    tags: List[str] = None,
-    projects_dir: str | Path = None,
+    aliases: Optional[List[str]] = None,
+    associated_paths: Optional[List[str]] = None,
+    tags: Optional[List[str]] = None,
+    projects_dir: Optional[str | Path] = None,
 ) -> Path:
     """
     Create a new project file.
@@ -136,7 +136,7 @@ def create_project(
 # ---------------------------------------------------------------------------
 
 
-def get_project(project_id: str, projects_dir: str | Path = None) -> Optional[dict]:
+def get_project(project_id: str, projects_dir: Optional[str | Path] = None) -> Optional[dict]:
     """
     Get a project by ID.
 
@@ -164,8 +164,8 @@ def get_project(project_id: str, projects_dir: str | Path = None) -> Optional[di
 
 
 def list_projects(
-    status: str = None,
-    projects_dir: str | Path = None,
+    status: Optional[str] = None,
+    projects_dir: Optional[str | Path] = None,
 ) -> List[dict]:
     """
     List all projects.
@@ -220,7 +220,7 @@ def list_projects(
 
 def update_project(
     project_id: str,
-    projects_dir: str | Path = None,
+    projects_dir: Optional[str | Path] = None,
     **updates,
 ) -> None:
     """
@@ -249,7 +249,7 @@ def update_project(
 # ---------------------------------------------------------------------------
 
 
-def archive_project(project_id: str, projects_dir: str | Path = None) -> None:
+def archive_project(project_id: str, projects_dir: Optional[str | Path] = None) -> None:
     """Set project status to 'archived'."""
     update_project(project_id, projects_dir=projects_dir, status="archived")
 
@@ -260,10 +260,10 @@ def archive_project(project_id: str, projects_dir: str | Path = None) -> None:
 
 
 def resolve_project(
-    cwd: str = None,
-    message: str = None,
-    explicit: str = None,
-    projects_dir: str | Path = None,
+    cwd: Optional[str] = None,
+    message: Optional[str] = None,
+    explicit: Optional[str] = None,
+    projects_dir: Optional[str | Path] = None,
 ) -> Optional[str]:
     """
     Determine which project the current context belongs to.
@@ -371,7 +371,7 @@ def resolve_project(
 # ---------------------------------------------------------------------------
 
 
-def update_project_index(projects_dir: str | Path = None) -> Path:
+def update_project_index(projects_dir: Optional[str | Path] = None) -> Path:
     """
     Rebuild the _index.md file — a human-readable overview of all projects.
 

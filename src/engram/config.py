@@ -256,6 +256,29 @@ class EngramConfig:
         # Default: enabled (actual gating is done by temporal marker detection)
         return True
 
+    # ── Deep search config ───────────────────────────────────────────────────
+
+    @property
+    def deep_search_enabled(self) -> bool:
+        """
+        True if LLM deep search is enabled.
+
+        Deep search gives the LLM all memory file contents (not just vector
+        top-K) so it can find answers that embedding similarity misses.
+        Requires a think_fn callback at runtime.
+
+        Default: False (opt-in — uses more tokens / is slower).
+        Override with ``llm.deep_search: true`` in config
+        or env var ENGRAM_DEEP_SEARCH=1.
+        """
+        env_val = os.environ.get("ENGRAM_DEEP_SEARCH")
+        if env_val is not None:
+            return env_val.strip().lower() in ("1", "true", "yes", "on")
+        configured = self._llm_section().get("deep_search")
+        if configured is not None:
+            return bool(configured)
+        return False
+
     # ── Exclusive predicates ────────────────────────────────────────────────
 
     @property

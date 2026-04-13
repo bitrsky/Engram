@@ -58,7 +58,7 @@ def _default_facts_dir() -> Path:
     return EngramConfig().facts_dir
 
 
-def _facts_path(project: str, facts_dir: str | Path = None) -> Path:
+def _facts_path(project: str, facts_dir: Optional[str | Path] = None) -> Path:
     """Return the Path for a project's facts file."""
     d = Path(facts_dir) if facts_dir else _default_facts_dir()
     return d / f"{project}.md"
@@ -239,7 +239,7 @@ def _parse_conflict_entry(primary_line: str, sub_data: dict) -> dict:
     }
 
 
-def parse_facts_file(project: str, facts_dir: str | Path = None) -> dict:
+def parse_facts_file(project: str, facts_dir: Optional[str | Path] = None) -> dict:
     """
     Parse a project's facts file.
 
@@ -365,7 +365,7 @@ def parse_facts_file(project: str, facts_dir: str | Path = None) -> dict:
 # ── Writing ─────────────────────────────────────────────────────────────────
 
 
-def write_facts_file(project: str, data: dict, facts_dir: str | Path = None) -> Path:
+def write_facts_file(project: str, data: dict, facts_dir: Optional[str | Path] = None) -> Path:
     """
     Write (overwrite) a project's facts file.
 
@@ -439,8 +439,8 @@ def add_fact(
     source_memory_id: str = "",
     since: str = "",
     source_text: str = "",
-    facts_dir: str | Path = None,
-    exclusive_predicates: Dict[str, str] = None,
+    facts_dir: Optional[str | Path] = None,
+    exclusive_predicates: Optional[Dict[str, str]] = None,
 ) -> dict:
     """
     Add a new fact to a project's facts file.
@@ -583,7 +583,7 @@ def expire_fact(
     object_val: str,
     reason: str = "",
     superseded_by: str = "",
-    facts_dir: str | Path = None,
+    facts_dir: Optional[str | Path] = None,
 ) -> bool:
     """
     Manually expire a fact. Moves it from Current to Expired.
@@ -619,7 +619,7 @@ def expire_fact(
     return True
 
 
-def get_active_facts(project: str, facts_dir: str | Path = None) -> List[Fact]:
+def get_active_facts(project: str, facts_dir: Optional[str | Path] = None) -> List[Fact]:
     """Get all current (non-expired) facts for a project."""
     data = parse_facts_file(project, facts_dir)
     return data["current"]
@@ -627,8 +627,8 @@ def get_active_facts(project: str, facts_dir: str | Path = None) -> List[Fact]:
 
 def get_facts_for_entity(
     entity: str,
-    project: str = None,
-    facts_dir: str | Path = None,
+    project: Optional[str] = None,
+    facts_dir: Optional[str | Path] = None,
 ) -> List[Fact]:
     """
     Get all active facts where the subject matches the entity.
@@ -660,8 +660,8 @@ def get_facts_for_entity(
 
 
 def get_unresolved_conflicts(
-    project: str = None,
-    facts_dir: str | Path = None,
+    project: Optional[str] = None,
+    facts_dir: Optional[str | Path] = None,
 ) -> List[dict]:
     """
     Get all unresolved conflicts.
@@ -697,7 +697,7 @@ def resolve_conflict_manual(
     project: str,
     conflict_index: int,
     winner: str,  # "a" or "b"
-    facts_dir: str | Path = None,
+    facts_dir: Optional[str | Path] = None,
 ) -> bool:
     """
     Manually resolve a conflict.

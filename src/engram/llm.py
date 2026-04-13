@@ -357,8 +357,8 @@ Output ONLY a valid JSON array, no markdown formatting:
 def extract_facts_via_callback(
     content: str,
     think_fn: ThinkFn,
-    project: str = None,
-    existing_facts: list = None,
+    project: Optional[str] = None,
+    existing_facts: Optional[list] = None,
 ) -> list:
     """Extract facts using agent thinking.
 
@@ -400,3 +400,126 @@ def extract_facts_via_callback(
         logger.debug("Fact extraction via callback failed: %s", exc)
 
     return []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Deep Search — LLM reads memories directly to find answers
+# ═══════════════════════════════════════════════════════════════════════════
+
+_DEEP_SEARCH_SYSTEM = (
+    "You are a memory search assistant. You have access to a user's memory "
+    "archive. Given a question, the top vector-search results, and a full "
+    "file listing, find the answer by reading the provided content. "
+    "Be precise and cite which memory/session contains the evidence."
+)
+
+# Max chars per vector hit in the prompt
+_MAX_HIT_CHARS = 2000
+
+# Max chars for file content in listing
+_MAX_FILE_CHARS = 2000
+
+# Max chars for the first line preview
+_MAX_PREVIEW_CHARS = 80
+
+_DEEP_SEARCH_PROMPT = """\
+Question: {query}
+
+=== Top vector search results (most similar to the question) ===
+{vector_hits_block}
+
+=== All memory files in the archive ===
+{file_listing_block}
+
+Instructions:
+1. First check if the vector search results already contain the answer.
+2. If not, scan the file listing for filenames/previews that might be relevant.
+3. Answer the question based on what you find. Be specific.
+4. If you find the answer, state which memory/file contains the evidence.
+5. If the information is not available in any of the provided content, say "NOT_FOUND".
+
+Answer:"""
+
+
+def deep_search(
+    query: str,
+    think_fn: ThinkFn,
+    vector_hits: list,
+    memory_listing: list,
+) -> Optional[str]:
+    """LLM deep search: give LLM vector candidates + full file listing.
+
+    The LLM reads the provided content and file listing to find answers
+    that vector search alone might miss.
+
+    Args:
+        query: The user's question.
+        think_fn: Agent thinking function.
+        vector_hits: List of SearchHit objects from vector_search().
+        memory_listing: List of dicts with keys:
+            - filename (str): e.g. "session_2.md"
+            - id (str): memory ID
+            - project (str)
+            - created (str): ISO date
+            - preview (str): first ~80 chars of content
+            - content (str): full content of the memory
+
+    Returns:
+        Answer string from LLM, or None if not found / failed.
+    """
+    if not memory_listing:
+        return None
+
+    # Build vector hits block
+    hit_lines = []
+    for i, hit in enumerate(vector_hits):
+        content = hit.content.strip()
+        if len(content) > _MAX_HIT_CHARS:
+            content = content[:_MAX_HIT_CHARS] + "..."
+        created = getattr(hit, "created", "") or ""
+        hit_id = getattr(hit, "id", f"hit_{i}")
+        hit_lines.append(f"[{i+1}] ({hit_id}, {created})")
+        hit_lines.append(content)
+        hit_lines.append("")
+
+    vector_hits_block = "\n".join(hit_lines) if hit_lines else "(no vector results)"
+
+    # Build file listing block — include full content so LLM can read it
+    file_lines = []
+    for mem in memory_listing:
+        filename = mem.get("filename", "?")
+        created = mem.get("created", "")
+        content = mem.get("content", "")
+
+        file_lines.append(f"--- {filename} ({created}) ---")
+        if content:
+            truncated = content[:_MAX_FILE_CHARS]
+            if len(content) > _MAX_FILE_CHARS:
+                truncated += "..."
+            file_lines.append(truncated)
+        else:
+            preview = mem.get("preview", "")
+            if len(preview) > _MAX_PREVIEW_CHARS:
+                preview = preview[:_MAX_PREVIEW_CHARS] + "..."
+            file_lines.append(f"Preview: {preview}")
+        file_lines.append("")
+
+    file_listing_block = "\n".join(file_lines) if file_lines else "(no files)"
+
+    prompt = _DEEP_SEARCH_PROMPT.format(
+        query=query,
+        vector_hits_block=vector_hits_block,
+        file_listing_block=file_listing_block,
+    )
+
+    try:
+        result = think_fn(prompt, system=_DEEP_SEARCH_SYSTEM, temperature=0.0, max_tokens=512)
+        if result and result.strip():
+            answer = result.strip()
+            if "NOT_FOUND" in answer:
+                return None
+            return answer
+    except Exception as exc:
+        logger.debug("Deep search failed: %s", exc)
+
+    return None

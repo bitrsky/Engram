@@ -47,8 +47,8 @@ def normalize_for_hash(content: str) -> str:
 def check_duplicate(
     content: str,
     index_manager: IndexManager,
-    project: str = None,
-    memory_type: str = None,
+    project: Optional[str] = None,
+    memory_type: Optional[str] = None,
 ) -> DedupResult:
     """
     Three-level deduplication check.

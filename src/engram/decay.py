@@ -22,7 +22,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from .config import EngramConfig
 from .store import update_frontmatter
@@ -64,7 +64,7 @@ def _clamp(value: float, lo: float = IMPORTANCE_MIN, hi: float = IMPORTANCE_MAX)
     return max(lo, min(hi, value))
 
 
-def _parse_iso(dt_str: str, fallback: datetime = None) -> datetime:
+def _parse_iso(dt_str: str, fallback: Optional[datetime] = None) -> datetime:
     """
     Parse an ISO datetime string, returning *fallback* on failure.
 
@@ -86,7 +86,7 @@ def _calculate_new_importance(
     access_count: int,
     last_accessed: str,
     created: str,
-    now: datetime = None,
+    now: Optional[datetime] = None,
     already_promoted_3: bool = False,
     already_promoted_10: bool = False,
 ) -> Tuple[float, str, bool, bool]:
@@ -179,9 +179,9 @@ def _calculate_new_importance(
 
 
 def run_decay(
-    index_dir: str | Path = None,
-    memories_dir: str | Path = None,
-    config: EngramConfig = None,
+    index_dir: Optional[str | Path] = None,
+    memories_dir: Optional[str | Path] = None,
+    config: Optional[EngramConfig] = None,
     dry_run: bool = False,
 ) -> DecayResult:
     """

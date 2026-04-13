@@ -258,9 +258,9 @@ def evaluate_single_question(
 
 def run_benchmark(
     variant: str = "s",
-    k_values: List[int] = None,
+    k_values: Optional[List[int]] = None,
     limit: int = 0,
-    skip_types: List[str] = None,
+    skip_types: Optional[List[str]] = None,
     use_rerank: bool = False,
 ) -> Tuple[List[dict], dict]:
     """
@@ -371,9 +371,9 @@ def run_benchmark(
         for k in k_values:
             key = f"recall@{k}"
             vals = [r[key] for r in cat_results]
-            cat_summary[key] = round(sum(vals) / len(vals), 4) if vals else 0
+            cat_summary[key] = round(sum(vals) / len(vals), 4) if vals else 0.0
         mrr_vals = [r["mrr"] for r in cat_results]
-        cat_summary["mrr"] = round(sum(mrr_vals) / len(mrr_vals), 4) if mrr_vals else 0
+        cat_summary["mrr"] = round(sum(mrr_vals) / len(mrr_vals), 4) if mrr_vals else 0.0
         summary["by_category"][cat] = cat_summary
 
     # -- Print report --

@@ -137,7 +137,7 @@ def _detect_file_type(filepath: Path) -> str:
     return EXTENSION_MAP.get(suffix, "unknown")
 
 
-def _is_excluded(filepath: Path, exclude_patterns: List[str] = None) -> bool:
+def _is_excluded(filepath: Path, exclude_patterns: Optional[List[str]] = None) -> bool:
     """Check if file should be excluded from ingestion."""
     # Binary check
     if filepath.suffix.lower() in BINARY_EXTENSIONS:
@@ -679,10 +679,10 @@ def chunk_conversation(content: str) -> List[dict]:
 
 def ingest_file(
     filepath: str | Path,
-    project: str = None,
-    topics: List[str] = None,
-    config: EngramConfig = None,
-    index_manager: IndexManager = None,
+    project: Optional[str] = None,
+    topics: Optional[List[str]] = None,
+    config: Optional[EngramConfig] = None,
+    index_manager: Optional[IndexManager] = None,
 ) -> IngestResult:
     """
     Ingest a single file into memory.
@@ -803,11 +803,11 @@ def ingest_file(
 
 def ingest_directory(
     dirpath: str | Path,
-    project: str = None,
-    topics: List[str] = None,
+    project: Optional[str] = None,
+    topics: Optional[List[str]] = None,
     recursive: bool = True,
-    exclude_patterns: List[str] = None,
-    config: EngramConfig = None,
+    exclude_patterns: Optional[List[str]] = None,
+    config: Optional[EngramConfig] = None,
 ) -> IngestResult:
     """
     Ingest all files in a directory.
@@ -909,11 +909,11 @@ def ingest_directory(
 
 def ingest_text(
     text: str,
-    project: str = None,
-    topics: List[str] = None,
+    project: Optional[str] = None,
+    topics: Optional[List[str]] = None,
     source: str = "ingest",
-    config: EngramConfig = None,
-    index_manager: IndexManager = None,
+    config: Optional[EngramConfig] = None,
+    index_manager: Optional[IndexManager] = None,
 ) -> IngestResult:
     """
     Ingest raw text content.

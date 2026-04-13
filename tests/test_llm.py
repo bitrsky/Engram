@@ -446,3 +446,64 @@ class TestExtractFactsViaCallback:
         think_fn = make_think_fn("This is not JSON at all")
         facts = extract_facts_via_callback("some text", think_fn)
         assert facts == []
+
+
+# ===========================================================================
+# deep_search tests
+# ===========================================================================
+
+
+class TestDeepSearch:
+    """Test the deep_search() function."""
+
+    def test_deep_search_finds_answer(self):
+        from engram.llm import deep_search
+
+        hits = [MockSearchHit(id="session_5", content="Alice went to the park")]
+        listing = [
+            {"filename": "session_1.md", "id": "session_1", "created": "2024-01-01",
+             "preview": "Hi there!", "content": "Hi there! Long time no see."},
+            {"filename": "session_2.md", "id": "session_2", "created": "2024-01-15",
+             "preview": "Caroline research", "content": "Caroline told me about her research on climate change."},
+        ]
+
+        def mock_think(prompt, system="", **kw):
+            return "Caroline researched climate change. Evidence found in session_2.md."
+
+        result = deep_search("What did Caroline research?", mock_think, hits, listing)
+        assert result is not None
+        assert "climate change" in result
+
+    def test_deep_search_returns_none_on_not_found(self):
+        from engram.llm import deep_search
+
+        listing = [
+            {"filename": "session_1.md", "id": "s1", "created": "2024-01-01",
+             "preview": "Hello", "content": "Hello world"},
+        ]
+
+        def mock_think(prompt, system="", **kw):
+            return "NOT_FOUND"
+
+        result = deep_search("What is the meaning of life?", mock_think, [], listing)
+        assert result is None
+
+    def test_deep_search_returns_none_on_empty_listing(self):
+        from engram.llm import deep_search
+
+        def mock_think(prompt, system="", **kw):
+            return "Some answer"
+
+        result = deep_search("query", mock_think, [], [])
+        assert result is None
+
+    def test_deep_search_returns_none_on_failure(self):
+        from engram.llm import deep_search
+
+        listing = [{"filename": "a.md", "id": "a", "created": "", "preview": "x", "content": "x"}]
+
+        def failing_think(prompt, system="", **kw):
+            raise RuntimeError("boom")
+
+        result = deep_search("query", failing_think, [], listing)
+        assert result is None

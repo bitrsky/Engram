@@ -53,7 +53,7 @@ class MemoryStack:
         stack = MemoryStack(config=cfg, think_fn=my_think)
     """
 
-    def __init__(self, config: EngramConfig = None, think_fn=None):
+    def __init__(self, config: Optional[EngramConfig] = None, think_fn=None):
         self._config = config or EngramConfig()
         self._think_fn = think_fn
         self._index: Optional[IndexManager] = None
@@ -119,7 +119,7 @@ class MemoryStack:
     # L1: Working Set
     # ──────────────────────────────────────────────
 
-    def working_set(self, project: str = None, max_tokens: int = 500) -> str:
+    def working_set(self, project: Optional[str] = None, max_tokens: int = 500) -> str:
         """
         L1: Generate working set context.
 
@@ -285,10 +285,10 @@ class MemoryStack:
 
     def recall(
         self,
-        message: str = None,
-        project: str = None,
-        topic: str = None,
-        cwd: str = None,
+        message: Optional[str] = None,
+        project: Optional[str] = None,
+        topic: Optional[str] = None,
+        cwd: Optional[str] = None,
         n: int = 3,
     ) -> str:
         """
@@ -356,8 +356,8 @@ class MemoryStack:
     def search(
         self,
         query: str,
-        project: str = None,
-        topics: List[str] = None,
+        project: Optional[str] = None,
+        topics: Optional[List[str]] = None,
         n: int = 5,
     ) -> str:
         """
@@ -402,7 +402,7 @@ class MemoryStack:
     # Unified entry points
     # ──────────────────────────────────────────────
 
-    def wake_up(self, project: str = None, cwd: str = None) -> str:
+    def wake_up(self, project: Optional[str] = None, cwd: Optional[str] = None) -> str:
         """
         Session startup: returns L0 + L1 combined context.
 

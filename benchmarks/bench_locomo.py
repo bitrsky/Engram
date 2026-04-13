@@ -149,6 +149,7 @@ def evaluate_conversation(
     use_rerank: bool = False,
     think_fn=None,
     query_rewrite: bool = False,
+    use_deep_search: bool = False,
 ) -> List[dict]:
     """
     Evaluate Engram retrieval on all QA pairs from one LoCoMo conversation.
@@ -241,7 +242,8 @@ def evaluate_conversation(
         memory_to_session = {v: k for k, v in session_key_to_memory_id.items()}
         max_k = max(k_values)
 
-        # Evaluate each QA pair
+        # Evaluate each QA pair — parallel when using LLM, serial otherwise
+        qa_tasks = []
         for qa in qa_pairs:
             question = qa.get("question", "")
             answer = qa.get("answer", "")
@@ -259,6 +261,11 @@ def evaluate_conversation(
             if not evidence_session_ids:
                 continue
 
+            qa_tasks.append((question, answer, category, evidence_session_ids))
+
+        def _eval_one(task):
+            question, answer, category, evidence_session_ids = task
+
             # Optional query rewrite via think_fn
             search_query = question
             if think_fn and query_rewrite:
@@ -269,7 +276,65 @@ def evaluate_conversation(
                     pass
 
             # Query — use think_fn path when available
-            if think_fn and use_rerank:
+            if think_fn and use_deep_search:
+                # Deep search: give LLM all sessions + vector hits
+                from engram.llm import deep_search as _deep_search
+
+                # Vector search for top candidates (still useful as hint)
+                raw_hits = mgr.vector_search(query=search_query, n=max_k)
+
+                # Build memory listing from all sessions
+                memory_listing = []
+                for skey, date_str, text in sessions:
+                    memory_listing.append({
+                        "filename": f"{skey}.md",
+                        "id": skey,
+                        "project": "locomo",
+                        "created": date_str[:10] if date_str else "",
+                        "preview": text[:80],
+                        "content": text,
+                    })
+
+                deep_answer = _deep_search(
+                    query=question,
+                    think_fn=think_fn,
+                    vector_hits=raw_hits,
+                    memory_listing=memory_listing,
+                )
+
+                # Extract session references from the LLM answer
+                # The LLM should cite session_N in its answer
+                if deep_answer:
+                    found_sessions = set(re.findall(r'session_\d+', deep_answer))
+                    # Build hits: put referenced sessions first, then vector hits
+                    seen = set()
+                    hits = []
+                    for skey in sorted(found_sessions):
+                        mid = session_key_to_memory_id.get(skey)
+                        if mid:
+                            # Find this hit in raw_hits or create a synthetic one
+                            matched = [h for h in raw_hits if h.id == mid]
+                            if matched:
+                                hits.append(matched[0])
+                            else:
+                                # Create synthetic hit for sessions not in vector results
+                                from engram.index import SearchHit
+                                hits.append(SearchHit(
+                                    id=mid, content="", similarity=1.0,
+                                    project="locomo", topics=[], memory_type="conversation",
+                                    importance=3.0, created="", file_path="",
+                                ))
+                            seen.add(mid)
+                    # Fill remaining from vector hits
+                    for h in raw_hits:
+                        if h.id not in seen:
+                            hits.append(h)
+                            seen.add(h.id)
+                    hits = hits[:max_k]
+                else:
+                    hits = raw_hits[:max_k]
+
+            elif think_fn and use_rerank:
                 from engram.rerank import rerank
                 # Stage 1: vector search for broad candidates
                 raw_hits = mgr.vector_search(query=search_query, n=20)
@@ -327,7 +392,16 @@ def evaluate_conversation(
             )
             result["top_retrieved"] = retrieved_session_ids[:5]
 
-            results.append(result)
+            return result
+
+        # Run parallel when LLM is involved, serial otherwise
+        if think_fn and (use_deep_search or use_rerank or query_rewrite):
+            import concurrent.futures
+            max_workers = 10
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+                results = list(pool.map(_eval_one, qa_tasks))
+        else:
+            results = [_eval_one(t) for t in qa_tasks]
 
         mgr.close()
 
@@ -343,9 +417,12 @@ def evaluate_conversation(
 
 
 def run_benchmark(
-    k_values: List[int] = None,
+    k_values: Optional[List[int]] = None,
     limit: int = 0,
     use_rerank: bool = False,
+    think_model: str = "",
+    query_rewrite: bool = False,
+    use_deep_search: bool = False,
 ) -> Tuple[List[dict], dict]:
     """
     Run the full LoCoMo benchmark.
@@ -354,6 +431,9 @@ def run_benchmark(
         k_values: K values for Recall@K (default: [3, 5, 10])
         limit: Max conversations to evaluate (0 = all)
         use_rerank: If True, use LLM reranking
+        think_model: Model name for ThinkFn (e.g. "anthropic/claude-sonnet-4-20250514").
+                     Empty string = no LLM, heuristic only.
+        query_rewrite: If True, enable query rewriting via ThinkFn.
 
     Returns:
         (results_list, summary_dict)
@@ -361,13 +441,24 @@ def run_benchmark(
     if k_values is None:
         k_values = [3, 5, 10]
 
+    # Build think_fn if model specified
+    think_fn = None
+    if think_model:
+        from .think_adapter import create_think_fn
+        think_fn = create_think_fn(model=think_model)
+        # Rerank is implied when think_fn is provided
+        use_rerank = True
+
     print(f"\n{'='*60}")
     print(f"LoCoMo Benchmark -- Engram Retrieval Evaluation")
     print(f"{'='*60}")
-    print(f"K values:   {k_values}")
-    print(f"Limit:      {limit or 'all (10 conversations)'}")
-    print(f"Rerank:     {'ON' if use_rerank else 'OFF'}")
-    print(f"Time:       {datetime.now().isoformat()}")
+    print(f"K values:       {k_values}")
+    print(f"Limit:          {limit or 'all (10 conversations)'}")
+    print(f"Rerank:         {'ON' if use_rerank else 'OFF'}")
+    print(f"Deep search:    {'ON' if use_deep_search else 'OFF'}")
+    print(f"ThinkFn model:  {think_model or '(none -- heuristic only)'}")
+    print(f"Query rewrite:  {'ON' if query_rewrite else 'OFF'}")
+    print(f"Time:           {datetime.now().isoformat()}")
     print(f"{'='*60}\n")
 
     # Load dataset
@@ -387,7 +478,13 @@ def run_benchmark(
         n_qa = len(sample.get("qa", []))
         print(f"  [{i+1}/{len(data)}] {sample_id} -- {n_qa} QA pairs")
 
-        conv_results = evaluate_conversation(sample, k_values, use_rerank=use_rerank)
+        conv_results = evaluate_conversation(
+            sample, k_values,
+            use_rerank=use_rerank,
+            think_fn=think_fn,
+            query_rewrite=query_rewrite,
+            use_deep_search=use_deep_search,
+        )
         print(f"           -> {len(conv_results)} evaluated")
         all_results.extend(conv_results)
 
@@ -407,6 +504,9 @@ def run_benchmark(
         "total_qa": len(all_results),
         "n_conversations": len(data),
         "rerank": use_rerank,
+        "deep_search": use_deep_search,
+        "think_model": think_model or "(none)",
+        "query_rewrite": query_rewrite,
         "elapsed_seconds": round(elapsed_total, 1),
         "timestamp": datetime.now().isoformat(),
         "overall": {},
@@ -432,9 +532,9 @@ def run_benchmark(
         for k in k_values:
             key = f"recall@{k}"
             vals = [r[key] for r in cat_results]
-            cat_summary[key] = round(sum(vals) / len(vals), 4) if vals else 0
+            cat_summary[key] = round(sum(vals) / len(vals), 4) if vals else 0.0
         mrr_vals = [r["mrr"] for r in cat_results]
-        cat_summary["mrr"] = round(sum(mrr_vals) / len(mrr_vals), 4) if mrr_vals else 0
+        cat_summary["mrr"] = round(sum(mrr_vals) / len(mrr_vals), 4) if mrr_vals else 0.0
         summary["by_category"][cat] = cat_summary
 
     # -- Print report --
@@ -501,10 +601,35 @@ def main():
     parser.add_argument(
         "--rerank",
         action="store_true",
-        help="Enable LLM reranking (requires LLM config)",
+        help="Enable LLM reranking (auto-enabled when --think is set)",
+    )
+    parser.add_argument(
+        "--think",
+        type=str,
+        default="",
+        metavar="MODEL",
+        help="Enable ThinkFn via EchoCodeClient with this model "
+             "(e.g. anthropic/claude-sonnet-4-20250514)",
+    )
+    parser.add_argument(
+        "--query-rewrite",
+        action="store_true",
+        help="Enable query rewriting via ThinkFn (requires --think)",
+    )
+    parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="Enable LLM deep search (requires --think). LLM reads all memories directly.",
     )
     args = parser.parse_args()
-    run_benchmark(k_values=args.k, limit=args.limit, use_rerank=args.rerank)
+    run_benchmark(
+        k_values=args.k,
+        limit=args.limit,
+        use_rerank=args.rerank,
+        think_model=args.think,
+        query_rewrite=args.query_rewrite,
+        use_deep_search=args.deep,
+    )
 
 
 if __name__ == "__main__":

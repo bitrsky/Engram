@@ -160,7 +160,7 @@ def _compare_dates(date_a: str, date_b: str) -> int:
 def check_conflict(
     new_fact: Fact,
     existing_facts: List[Fact],
-    exclusive_predicates: Dict[str, str] = None,
+    exclusive_predicates: Optional[Dict[str, str]] = None,
 ) -> Optional[Conflict]:
     """
     Check if a new fact conflicts with any existing facts.

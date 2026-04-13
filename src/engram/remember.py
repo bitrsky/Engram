@@ -60,12 +60,12 @@ class RememberResult:
 
 def remember(
     content: str,
-    project: str = None,
-    topics: List[str] = None,
+    project: Optional[str] = None,
+    topics: Optional[List[str]] = None,
     memory_type: str = "note",
     source: str = "manual",
-    config: EngramConfig = None,
-    index_manager: IndexManager = None,
+    config: Optional[EngramConfig] = None,
+    index_manager: Optional[IndexManager] = None,
     skip_quality_check: bool = False,
     skip_dedup: bool = False,
     skip_facts: bool = False,
@@ -233,8 +233,8 @@ def remember(
 
 def remember_batch(
     items: List[dict],
-    config: EngramConfig = None,
-    index_manager: IndexManager = None,
+    config: Optional[EngramConfig] = None,
+    index_manager: Optional[IndexManager] = None,
 ) -> List[RememberResult]:
     """
     Remember multiple items, sharing a single ``IndexManager``.

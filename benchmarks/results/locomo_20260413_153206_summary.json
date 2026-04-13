@@ -1,0 +1,52 @@
+{
+  "dataset": "locomo",
+  "total_qa": 150,
+  "n_conversations": 1,
+  "rerank": true,
+  "think_model": "anthropic/claude-sonnet-4-20250514",
+  "query_rewrite": false,
+  "elapsed_seconds": 1589.4,
+  "timestamp": "2026-04-13T15:32:06.060102",
+  "overall": {
+    "recall@3": 0.5333,
+    "strict_recall@3": 0.4854,
+    "ndcg@3": 0.4382,
+    "recall@5": 0.5933,
+    "strict_recall@5": 0.5388,
+    "ndcg@5": 0.4612,
+    "recall@10": 0.68,
+    "strict_recall@10": 0.6381,
+    "ndcg@10": 0.4976,
+    "mrr": 0.4717
+  },
+  "by_category": {
+    "commonsense": {
+      "count": 70,
+      "recall@3": 0.4714,
+      "recall@5": 0.4857,
+      "recall@10": 0.5286,
+      "mrr": 0.4085
+    },
+    "multi-hop": {
+      "count": 37,
+      "recall@3": 0.6216,
+      "recall@5": 0.6486,
+      "recall@10": 0.7838,
+      "mrr": 0.5415
+    },
+    "single-hop": {
+      "count": 32,
+      "recall@3": 0.5312,
+      "recall@5": 0.6875,
+      "recall@10": 0.8438,
+      "mrr": 0.509
+    },
+    "temporal": {
+      "count": 11,
+      "recall@3": 0.6364,
+      "recall@5": 0.8182,
+      "recall@10": 0.8182,
+      "mrr": 0.5303
+    }
+  }
+}

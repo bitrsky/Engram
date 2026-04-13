@@ -76,7 +76,7 @@ class IndexManager:
     SQLite stores: structured metadata for non-semantic queries (filter by project, sort by date, etc.)
     """
 
-    def __init__(self, index_dir: str | Path, memories_dir: str | Path = None):
+    def __init__(self, index_dir: str | Path, memories_dir: Optional[str | Path] = None):
         """
         Args:
             index_dir: Path to .index/ directory (contains vectors.chroma/ and meta.sqlite3)
@@ -96,10 +96,20 @@ class IndexManager:
 
         # Initialize SQLite
         self._db_path = self._index_dir / "meta.sqlite3"
-        self._conn = sqlite3.connect(str(self._db_path))
+        self._conn: sqlite3.Connection | None = sqlite3.connect(str(self._db_path))
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(SQLITE_SCHEMA)
         self._conn.commit()
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @property
+    def _db(self) -> sqlite3.Connection:
+        """Return the active SQLite connection (raises if closed)."""
+        assert self._conn is not None, "IndexManager already closed"
+        return self._conn
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -107,12 +117,12 @@ class IndexManager:
 
     def close(self):
         """Close database connections."""
-        if self._conn:
+        if self._conn is not None:
             try:
                 self._conn.close()
             except Exception:
                 pass
-            self._conn = None
+            self._conn = None  # type: ignore[assignment]
 
     def __del__(self):
         """Safety net — close connections on garbage collection."""
@@ -165,7 +175,7 @@ class IndexManager:
         )
 
         # --- SQLite ---
-        self._conn.execute(
+        self._db.execute(
             """
             INSERT INTO memory_index
                 (id, project, topics, memory_type, importance, created,
@@ -193,14 +203,14 @@ class IndexManager:
                 now_iso,
             ),
         )
-        self._conn.commit()
+        self._db.commit()
 
         return memory_id
 
     def remove_from_index(self, memory_id: str) -> bool:
         """Remove a memory from both indexes. Returns True if found."""
         # Check existence in SQLite first.
-        row = self._conn.execute(
+        row = self._db.execute(
             "SELECT id FROM memory_index WHERE id = ?", (memory_id,)
         ).fetchone()
 
@@ -213,10 +223,10 @@ class IndexManager:
             pass
 
         # Remove from SQLite.
-        self._conn.execute(
+        self._db.execute(
             "DELETE FROM memory_index WHERE id = ?", (memory_id,)
         )
-        self._conn.commit()
+        self._db.commit()
 
         return found
 
@@ -224,7 +234,7 @@ class IndexManager:
     # Bulk operations
     # ------------------------------------------------------------------
 
-    def rebuild(self, memories_dir: str | Path = None) -> int:
+    def rebuild(self, memories_dir: Optional[str | Path] = None) -> int:
         """
         Full rebuild: clear both indexes, scan all memories/*.md, re-index everything.
 
@@ -244,9 +254,9 @@ class IndexManager:
         )
 
         # Clear SQLite tables.
-        self._conn.execute("DELETE FROM memory_index")
-        self._conn.execute("DELETE FROM index_meta")
-        self._conn.commit()
+        self._db.execute("DELETE FROM memory_index")
+        self._db.execute("DELETE FROM index_meta")
+        self._db.commit()
 
         # Scan and index every .md file.
         count = 0
@@ -265,18 +275,18 @@ class IndexManager:
 
         # Record rebuild timestamp.
         now_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        self._conn.execute(
+        self._db.execute(
             """
             INSERT INTO index_meta (key, value) VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value = excluded.value
             """,
             ("last_rebuild_time", now_iso),
         )
-        self._conn.commit()
+        self._db.commit()
 
         return count
 
-    def incremental_update(self, memories_dir: str | Path = None) -> int:
+    def incremental_update(self, memories_dir: Optional[str | Path] = None) -> int:
         """
         Incremental update: only process files modified since last index time.
         Also removes index entries for files that no longer exist.
@@ -290,7 +300,7 @@ class IndexManager:
             )
 
         # Get the last rebuild/update timestamp.
-        row = self._conn.execute(
+        row = self._db.execute(
             "SELECT value FROM index_meta WHERE key = ?",
             ("last_rebuild_time",),
         ).fetchone()
@@ -306,7 +316,7 @@ class IndexManager:
             last_rebuild_ts = 0.0
 
         # --- Remove stale entries (files that no longer exist) ---
-        existing_rows = self._conn.execute(
+        existing_rows = self._db.execute(
             "SELECT id, file_path FROM memory_index"
         ).fetchall()
 
@@ -322,7 +332,7 @@ class IndexManager:
         count = 0
         if mem_dir.is_dir():
             # Build a set of already-indexed file paths for quick lookup.
-            indexed_rows = self._conn.execute(
+            indexed_rows = self._db.execute(
                 "SELECT file_path, indexed_at FROM memory_index"
             ).fetchall()
             indexed_map: Dict[str, str] = {
@@ -363,14 +373,14 @@ class IndexManager:
 
         # Update the last rebuild time.
         now_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        self._conn.execute(
+        self._db.execute(
             """
             INSERT INTO index_meta (key, value) VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value = excluded.value
             """,
             ("last_rebuild_time", now_iso),
         )
-        self._conn.commit()
+        self._db.commit()
 
         return count + len(stale_ids)
 
@@ -381,9 +391,9 @@ class IndexManager:
     def vector_search(
         self,
         query: str,
-        project: str = None,
-        topics: List[str] = None,
-        memory_type: str = None,
+        project: Optional[str] = None,
+        topics: Optional[List[str]] = None,
+        memory_type: Optional[str] = None,
         n: int = 5,
     ) -> List[SearchHit]:
         """
@@ -431,10 +441,10 @@ class IndexManager:
         results = self._collection.query(**query_kwargs)
 
         # Unpack ChromaDB results (they come as lists-of-lists).
-        ids = results.get("ids", [[]])[0]
-        documents = results.get("documents", [[]])[0]
-        distances = results.get("distances", [[]])[0]
-        metadatas = results.get("metadatas", [[]])[0]
+        ids = (results.get("ids") or [[]])[0]
+        documents = (results.get("documents") or [[]])[0]
+        distances = (results.get("distances") or [[]])[0]
+        metadatas = (results.get("metadatas") or [[]])[0]
 
         hits: List[SearchHit] = []
         for i, mid in enumerate(ids):
@@ -448,7 +458,8 @@ class IndexManager:
             # Parse topics from JSON string.
             raw_topics = meta.get("topics", "[]")
             try:
-                hit_topics = json.loads(raw_topics) if isinstance(raw_topics, str) else raw_topics
+                parsed_topics = json.loads(raw_topics) if isinstance(raw_topics, str) else raw_topics
+                hit_topics: list = parsed_topics if isinstance(parsed_topics, list) else []
             except (json.JSONDecodeError, TypeError):
                 hit_topics = []
 
@@ -465,12 +476,12 @@ class IndexManager:
                     id=mid,
                     content=document,
                     similarity=similarity,
-                    project=meta.get("project", ""),
+                    project=str(meta.get("project", "")),
                     topics=hit_topics,
-                    memory_type=meta.get("memory_type", ""),
+                    memory_type=str(meta.get("memory_type", "")),
                     importance=float(meta.get("importance", 3.0)),
-                    created=meta.get("created", ""),
-                    file_path=meta.get("file_path", ""),
+                    created=str(meta.get("created", "")),
+                    file_path=str(meta.get("file_path", "")),
                 )
             )
 
@@ -482,9 +493,9 @@ class IndexManager:
         self,
         query: str,
         config,
-        project: str = None,
-        topics: List[str] = None,
-        memory_type: str = None,
+        project: Optional[str] = None,
+        topics: Optional[List[str]] = None,
+        memory_type: Optional[str] = None,
         n: int = 5,
         candidates: int = 0,
         think_fn=None,
@@ -541,10 +552,10 @@ class IndexManager:
 
     def metadata_query(
         self,
-        project: str = None,
-        memory_type: str = None,
-        since: str = None,
-        until: str = None,
+        project: Optional[str] = None,
+        memory_type: Optional[str] = None,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
         order_by: str = "created",
         limit: int = 10,
     ) -> List[dict]:
@@ -580,7 +591,7 @@ class IndexManager:
         sql += f" ORDER BY {order_by} DESC LIMIT ?"
         params.append(limit)
 
-        rows = self._conn.execute(sql, params).fetchall()
+        rows = self._db.execute(sql, params).fetchall()
 
         results: List[dict] = []
         for row in rows:
@@ -601,7 +612,7 @@ class IndexManager:
     def update_access_stats(self, memory_id: str) -> None:
         """Increment access_count and update last_accessed in SQLite."""
         now_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        self._conn.execute(
+        self._db.execute(
             """
             UPDATE memory_index
             SET access_count = access_count + 1,
@@ -610,7 +621,7 @@ class IndexManager:
             """,
             (now_iso, memory_id),
         )
-        self._conn.commit()
+        self._db.commit()
 
     # ------------------------------------------------------------------
     # Content hash lookup (for dedup)
@@ -618,7 +629,7 @@ class IndexManager:
 
     def get_content_hash(self, content_hash: str) -> Optional[str]:
         """Look up a memory id by content hash. Returns id or None."""
-        row = self._conn.execute(
+        row = self._db.execute(
             "SELECT id FROM memory_index WHERE content_hash = ?",
             (content_hash,),
         ).fetchone()
@@ -640,19 +651,19 @@ class IndexManager:
         }
         """
         # SQLite count.
-        sqlite_row = self._conn.execute(
+        sqlite_row = self._db.execute(
             "SELECT COUNT(*) AS cnt FROM memory_index"
         ).fetchone()
         sqlite_count = sqlite_row["cnt"] if sqlite_row else 0
 
         # Distinct projects.
-        project_rows = self._conn.execute(
+        project_rows = self._db.execute(
             "SELECT DISTINCT project FROM memory_index WHERE project != '' AND project IS NOT NULL"
         ).fetchall()
         projects = [r["project"] for r in project_rows]
 
         # Last rebuild time.
-        meta_row = self._conn.execute(
+        meta_row = self._db.execute(
             "SELECT value FROM index_meta WHERE key = ?",
             ("last_rebuild_time",),
         ).fetchone()

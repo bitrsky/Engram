@@ -240,7 +240,7 @@ class RetrievalResult:
 
 def aggregate_retrieval_results(
     results: List[RetrievalResult],
-    split: str = None,
+    split: Optional[str] = None,
 ) -> Dict[str, float]:
     """
     Aggregate retrieval results into summary metrics.
@@ -300,7 +300,7 @@ def aggregate_retrieval_results(
 
 def per_category_breakdown(
     results: List[RetrievalResult],
-    split: str = None,
+    split: Optional[str] = None,
     k: int = 5,
 ) -> Dict[str, Dict]:
     """

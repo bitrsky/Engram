@@ -146,13 +146,13 @@ def parse_frontmatter(filepath: str | Path) -> Tuple[dict, str]:
 
 def write_memory(
     content: str,
-    project: str = None,
-    topics: List[str] = None,
+    project: Optional[str] = None,
+    topics: Optional[List[str]] = None,
     memory_type: str = "note",
     source: str = "manual",
     importance: float = 3.0,
-    memories_dir: str | Path = None,
-    memory_id: str = None,
+    memories_dir: Optional[str | Path] = None,
+    memory_id: Optional[str] = None,
 ) -> Path:
     """
     Write a new memory as a Markdown file.
@@ -277,10 +277,10 @@ def read_memory(filepath: str | Path) -> dict:
 
 
 def list_memories(
-    memories_dir: str | Path = None,
-    project: str = None,
-    since: str = None,
-    limit: int = None,
+    memories_dir: Optional[str | Path] = None,
+    project: Optional[str] = None,
+    since: Optional[str] = None,
+    limit: Optional[int] = None,
 ) -> List[dict]:
     """
     List memories from the memories directory.

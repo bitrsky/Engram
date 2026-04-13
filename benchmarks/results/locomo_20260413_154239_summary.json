@@ -1,0 +1,52 @@
+{
+  "dataset": "locomo",
+  "total_qa": 150,
+  "n_conversations": 1,
+  "rerank": true,
+  "think_model": "anthropic/claude-haiku-3",
+  "query_rewrite": false,
+  "elapsed_seconds": 801.3,
+  "timestamp": "2026-04-13T15:42:39.865163",
+  "overall": {
+    "recall@3": 0.54,
+    "strict_recall@3": 0.5016,
+    "ndcg@3": 0.443,
+    "recall@5": 0.6067,
+    "strict_recall@5": 0.5588,
+    "ndcg@5": 0.4672,
+    "recall@10": 0.76,
+    "strict_recall@10": 0.6914,
+    "ndcg@10": 0.5138,
+    "mrr": 0.4759
+  },
+  "by_category": {
+    "commonsense": {
+      "count": 70,
+      "recall@3": 0.5286,
+      "recall@5": 0.5286,
+      "recall@10": 0.6429,
+      "mrr": 0.4383
+    },
+    "multi-hop": {
+      "count": 37,
+      "recall@3": 0.6486,
+      "recall@5": 0.7568,
+      "recall@10": 0.8378,
+      "mrr": 0.5774
+    },
+    "single-hop": {
+      "count": 32,
+      "recall@3": 0.5,
+      "recall@5": 0.5938,
+      "recall@10": 0.875,
+      "mrr": 0.4795
+    },
+    "temporal": {
+      "count": 11,
+      "recall@3": 0.3636,
+      "recall@5": 0.6364,
+      "recall@10": 0.9091,
+      "mrr": 0.363
+    }
+  }
+}
