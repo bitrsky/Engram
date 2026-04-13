@@ -23,9 +23,9 @@ def engram_dir(tmp_path):
     (base / ".index").mkdir()
 
     # Create minimal config
-    config_path = base / "config.yaml"
+    config_path = base / "config.toml"
     config_path.write_text(
-        "llm:\n  provider: none\n",
+        "[llm]\nprovider = \"none\"\n",
         encoding="utf-8",
     )
 

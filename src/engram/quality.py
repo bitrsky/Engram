@@ -10,7 +10,7 @@ patterns are used by default; users can extend them with additional patterns
 """
 
 import re
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Set, Tuple
 
 if TYPE_CHECKING:
     from .config import EngramConfig
@@ -32,25 +32,26 @@ def quality_gate(
     Returns:
         (should_store: bool, importance: float)
         importance range: 0.5 (low) to 5.0 (high), default 3.0
+    """
+    should_store, importance, _ = quality_gate_detailed(content, source_type, config)
+    return (should_store, importance)
 
-    Rules:
-    1. Empty or whitespace-only → (False, 0)
-    2. Code files with prose_ratio < 0.15 → (False, 0)
-       prose_ratio = count of alphabetic chars in prose lines / total chars
-    3. Too short (< 50 chars) AND no memory markers → (True, 0.5)
-    4. Noise patterns → (False, 0):
-       - Single-word responses: "ok", "sure", "got it", "thanks", "yes", "no", "right"
-       - AI template openings: "Here's", "Let me", "Sure, I'll", "I'll help", "Certainly!"
-       - Pure acknowledgments: "Sounds good", "Makes sense", "Understood"
-    5. Has strong memory markers → importance boost:
-       - Decision markers ("decided", "chose", "went with") → +1.0
-       - Milestone markers ("shipped", "launched", "finally works") → +1.0
-       - Problem+solution markers ("the fix was", "root cause") → +0.5
-    6. Default → (True, 3.0)
+
+def quality_gate_detailed(
+    content: str,
+    source_type: str = "note",
+    config: Optional["EngramConfig"] = None,
+) -> Tuple[bool, float, Set[str]]:
+    """
+    Like :func:`quality_gate` but also returns which pattern categories matched.
+
+    Returns:
+        (should_store, importance, matched_categories)
+        matched_categories is a set like {"decision_markers", "milestone_markers"}
     """
     # ── Rule 1: Empty or whitespace-only ──
     if not content or not content.strip():
-        return (False, 0.0)
+        return (False, 0.0, set())
 
     stripped = content.strip()
     lower = stripped.lower()
@@ -70,27 +71,35 @@ def quality_gate(
         problem_markers = _qp["problem_markers"]
         noise_patterns = _qp["noise_patterns"]
 
-    # ── Rule 4: Noise patterns (check before short-content rule so
-    #    "ok" doesn't sneak through as a short-but-stored note) ──
+    # ── Rule 4: Noise patterns ──
     for pattern in noise_patterns:
         if re.search(pattern, lower, re.IGNORECASE):
-            return (False, 0.0)
+            return (False, 0.0, {"noise_patterns"})
 
     # ── Rule 2: Code files with low prose ratio ──
     if source_type == "code":
         prose_ratio = _count_prose_ratio(stripped)
         if prose_ratio < 0.15:
-            return (False, 0.0)
+            return (False, 0.0, set())
 
-    # ── Helper: check for any memory markers ──
+    # ── Check for memory markers ──
+    matched: Set[str] = set()
     has_decision = any(re.search(p, lower) for p in decision_markers)
     has_milestone = any(re.search(p, lower) for p in milestone_markers)
     has_problem = any(re.search(p, lower) for p in problem_markers)
-    has_any_marker = has_decision or has_milestone or has_problem
+
+    if has_decision:
+        matched.add("decision_markers")
+    if has_milestone:
+        matched.add("milestone_markers")
+    if has_problem:
+        matched.add("problem_markers")
+
+    has_any_marker = bool(matched)
 
     # ── Rule 3: Too short (< 50 chars) with no markers ──
     if len(stripped) < 50 and not has_any_marker:
-        return (True, 0.5)
+        return (True, 0.5, matched)
 
     # ── Rule 5 & 6: Compute importance with marker boosts ──
     importance = 3.0
@@ -105,7 +114,7 @@ def quality_gate(
     # Cap at 5.0
     importance = min(importance, 5.0)
 
-    return (True, importance)
+    return (True, importance, matched)
 
 
 def _count_prose_ratio(content: str) -> float:

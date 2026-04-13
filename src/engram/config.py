@@ -306,8 +306,10 @@ class EngramConfig:
         self._base_dir = Path(base_dir or env_base or DEFAULT_BASE_DIR).expanduser()
         self._config: dict = {}
         self._patterns_data: dict = {}
+        self._learned_data: dict = {}
         self._config_path = self._base_dir / "config.toml"
         self._patterns_path = self._base_dir / "patterns.toml"
+        self._learned_path = self._base_dir / "learned_patterns.toml"
 
         # Load main config
         self._config = _load_toml(self._config_path)
@@ -321,8 +323,11 @@ class EngramConfig:
             except Exception:
                 self._config = {}
 
-        # Load patterns
+        # Load patterns (user-configured)
         self._patterns_data = _load_toml(self._patterns_path)
+
+        # Load learned patterns (auto-discovered)
+        self._learned_data = _load_toml(self._learned_path)
 
     # ── Directory properties ────────────────────────────────────────────────
 
@@ -357,6 +362,14 @@ class EngramConfig:
     @property
     def patterns_path(self) -> Path:
         return self._patterns_path
+
+    @property
+    def learned_patterns_path(self) -> Path:
+        return self._learned_path
+
+    def reload_learned_patterns(self) -> None:
+        """Reload learned_patterns.toml from disk (e.g. after learn.py writes new patterns)."""
+        self._learned_data = _load_toml(self._learned_path)
 
     # ── LLM feature toggles ────────────────────────────────────────────────
 
@@ -470,11 +483,11 @@ class EngramConfig:
 
     def _get_patterns(self, category: str, key: str) -> List[str]:
         """
-        Merge built-in patterns with user-configured patterns from patterns.toml.
+        Merge built-in + user-configured + learned patterns.
 
-        By default, user patterns EXTEND the built-in list.
-        If ``replace = true`` is set at the top level of patterns.toml,
-        ONLY user patterns are used.
+        Merge order: builtin → patterns.toml → learned_patterns.toml
+        If ``replace = true`` in patterns.toml, builtins are skipped
+        (but learned patterns are still appended).
 
         Args:
             category: Top-level TOML section ("quality", "conflicts", "temporal")
@@ -490,18 +503,27 @@ class EngramConfig:
         cat_section = self._patterns_data.get(category, {}) or {}
         user_patterns = cat_section.get(key)
 
-        if not user_patterns or not isinstance(user_patterns, list):
-            # No user overrides — return builtins (even in replace mode,
-            # we fall back to builtins if user didn't provide any)
-            return list(builtin)
-
-        # Validate: only keep strings
-        user_patterns = [p for p in user_patterns if isinstance(p, str)]
-
-        if replace_mode:
-            return user_patterns
+        # Start with builtins (unless replace mode)
+        if replace_mode and user_patterns and isinstance(user_patterns, list):
+            result = [p for p in user_patterns if isinstance(p, str)]
+        elif user_patterns and isinstance(user_patterns, list):
+            valid_user = [p for p in user_patterns if isinstance(p, str)]
+            result = list(builtin) + valid_user
         else:
-            return list(builtin) + user_patterns
+            result = list(builtin)
+
+        # Append learned patterns (auto-discovered keywords → wrapped as regex)
+        learned_section = self._learned_data.get(category, {}) or {}
+        learned_keywords = learned_section.get(key)
+        if learned_keywords and isinstance(learned_keywords, list):
+            for kw in learned_keywords:
+                if isinstance(kw, str) and kw:
+                    # Wrap plain keyword as regex: keyword → (?:keyword)
+                    # Escape regex special chars in the keyword
+                    escaped = re.escape(kw)
+                    result.append(f"(?:{escaped})")
+
+        return result
 
     # ── Quality gate patterns ────────────────────────────────────────────────
 

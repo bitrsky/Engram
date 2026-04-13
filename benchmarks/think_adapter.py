@@ -154,25 +154,36 @@ async def deep_search_agent(
     hint_lines = []
     for i, hit in enumerate(vector_hits[:10]):
         content = hit.content.strip()
-        if len(content) > 500:
-            content = content[:500] + "..."
+        if len(content) > 300:
+            content = content[:300] + "..."
         created = getattr(hit, "created", "") or ""
         hit_id = getattr(hit, "id", f"hit_{i}")
-        hint_lines.append(f"[{i+1}] ({hit_id}, {created})")
-        hint_lines.append(content)
+        file_path = getattr(hit, "file_path", "") or ""
+        topics = getattr(hit, "topics", []) or []
+        project = getattr(hit, "project", "") or ""
+        similarity = getattr(hit, "similarity", 0.0)
+
+        hint_lines.append(
+            f"[{i+1}] id={hit_id} | similarity={similarity:.2f} | "
+            f"created={created} | project={project} | topics={topics}"
+        )
+        if file_path:
+            hint_lines.append(f"    file: {file_path}")
+        hint_lines.append(f"    preview: {content}")
         hint_lines.append("")
 
     hints_block = "\n".join(hint_lines) if hint_lines else "(no vector results)"
 
     user_prompt = (
         f"Question: {query}\n\n"
-        f"=== Vector search hints (may or may not contain the answer) ===\n"
+        f"=== Vector search hints (ranked by semantic similarity) ===\n"
         f"{hints_block}\n\n"
-        f"If the hints above answer the question, respond immediately with "
-        f"the memory IDs from the hints.\n"
-        f"Otherwise, search the knowledge base at {base_dir}. "
-        f"Use grep to find keywords in memories/, check facts/ for factual "
-        f"questions, then read matching files.\n"
+        f"Each hint includes a file path — you can use read to get the full content.\n"
+        f"If the hints answer the question, respond with the memory IDs.\n"
+        f"Otherwise, search the knowledge base at {base_dir}:\n"
+        f"- grep in memories/ for keywords\n"
+        f"- check facts/ for factual relationships\n"
+        f"- read specific files for full context\n"
         f"EVIDENCE must list memory IDs (like session_5), not filenames."
     )
 

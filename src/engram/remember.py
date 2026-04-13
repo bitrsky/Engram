@@ -27,8 +27,9 @@ from .dedup import DedupResult, check_duplicate
 from .extract import FactCandidate, extract_facts
 from .facts import add_fact, get_active_facts
 from .index import IndexManager
+from .learn import learn_from_extraction
 from .projects import update_project
-from .quality import quality_gate
+from .quality import quality_gate_detailed
 from .store import parse_frontmatter, write_memory
 
 logger = logging.getLogger(__name__)
@@ -139,11 +140,14 @@ def remember(
 
     # ── Step 1: Quality gate ─────────────────────────────────────────────
     if not skip_quality_check:
-        should_store, importance = quality_gate(content, source, config=config)
+        should_store, importance, matched_categories = quality_gate_detailed(
+            content, source, config=config
+        )
         if not should_store:
             return RememberResult(success=False, rejected_reason="low_quality")
     else:
         importance = 3.0
+        matched_categories = set()
 
     # ── Acquire IndexManager (may be caller-supplied or locally owned) ───
     own_index = index_manager is None
@@ -205,6 +209,7 @@ def remember(
                 config=config,
                 result=result,
                 think_fn=think_fn,
+                matched_categories=matched_categories,
             )
 
         # ── Step 7: Update project last_active ───────────────────────────
@@ -305,11 +310,14 @@ def _extract_and_add_facts(
     config: EngramConfig,
     result: RememberResult,
     think_fn=None,
+    matched_categories=None,
 ) -> None:
     """
     Steps 5–6: extract facts from *content* and add them to the project
     facts file.  Mutates *result* in-place (facts_extracted, facts_added,
     conflicts_detected, conflict_details).
+
+    Step 7 (non-critical): run pattern learner to discover new keywords.
 
     This is wrapped so the caller can treat the entire block as non-critical.
     """
@@ -349,6 +357,29 @@ def _extract_and_add_facts(
                 result.conflict_details.append(
                     _format_conflict_detail(conflict, fact_result)
                 )
+
+        # ── Step 7 (non-critical): Pattern learning ─────────────────────
+        # Compare LLM extraction results with heuristic pattern matches
+        # to discover new keywords.  Zero extra LLM calls.
+        if candidates and matched_categories is not None:
+            try:
+                learn_result = learn_from_extraction(
+                    content=content,
+                    facts=candidates,
+                    matched_categories=matched_categories,
+                    config=config,
+                )
+                if learn_result.promoted > 0:
+                    # Reload learned patterns so subsequent operations
+                    # in this session pick them up immediately.
+                    config.reload_learned_patterns()
+                    logger.debug(
+                        "Pattern learner promoted %d patterns: %s",
+                        learn_result.promoted,
+                        learn_result.details,
+                    )
+            except Exception:
+                logger.debug("Pattern learning failed (non-critical)", exc_info=True)
 
     except Exception:
         logger.debug(
