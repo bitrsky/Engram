@@ -67,10 +67,12 @@ _BUILTIN_PATTERNS: Dict[str, Dict[str, List[str]]] = {
             r"\b(workaround|the answer was|resolved)\b",
         ],
         "noise_patterns": [
-            r"^(ok|okay|sure|got it|thanks|thank you|yes|no|right|fine|cool|nice|great|yep|nope|alright)\s*[.!?]?\s*$",
-            r"^(sounds good|makes sense|understood|will do|on it|roger|ack|noted)\s*[.!?]?\s*$",
-            r"^(here'?s|let me|sure,?\s*i'?ll|i'?ll help|certainly|of course|absolutely)[,!.\s]",
-            r"^(i'?d be happy to|i can help|great question|good point)\s",
+            # Pure acknowledgements / greetings (with optional markdown quote prefix)
+            r"^(>?\s*)?(ok|okay|sure|got it|thanks|thank you|yes|no|right|fine|cool|nice|great|yep|nope|alright|hi|hey|hello|hm+|ah+|oh+|huh|lol|haha)\s*[.!?]?\s*$",
+            r"^(>?\s*)?(sounds good|makes sense|understood|will do|on it|roger|ack|noted)\s*[.!?]?\s*$",
+            # AI pleasantries
+            r"^(>?\s*)?(here'?s|let me|sure,?\s*i'?ll|i'?ll help|certainly|of course|absolutely)[,!.\s]",
+            r"^(>?\s*)?(i'?d be happy to|i can help|great question|good point)\s",
         ],
     },
     "conflicts": {

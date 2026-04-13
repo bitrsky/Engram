@@ -72,8 +72,24 @@ def quality_gate_detailed(
         noise_patterns = _qp["noise_patterns"]
 
     # ── Rule 4: Noise patterns ──
-    for pattern in noise_patterns:
-        if re.search(pattern, lower, re.IGNORECASE):
+    # Check each non-empty line against noise patterns.  If ALL meaningful
+    # lines are noise (greetings, acknowledgements, AI pleasantries), reject.
+    meaningful_lines = [
+        ln.strip().lstrip("> ").strip()
+        for ln in lower.splitlines()
+        if ln.strip() and ln.strip() not in (">",)
+    ]
+    if meaningful_lines:
+        all_noise = True
+        for line in meaningful_lines:
+            is_noise = any(
+                re.search(pattern, line, re.IGNORECASE)
+                for pattern in noise_patterns
+            )
+            if not is_noise:
+                all_noise = False
+                break
+        if all_noise:
             return (False, 0.0, {"noise_patterns"})
 
     # ── Rule 2: Code files with low prose ratio ──
@@ -97,8 +113,16 @@ def quality_gate_detailed(
 
     has_any_marker = bool(matched)
 
-    # ── Rule 3: Too short (< 50 chars) with no markers ──
-    if len(stripped) < 50 and not has_any_marker:
+    # ── Rule 3: Too short with no markers → reject ──
+    # CJK characters carry more information per char than Latin, so we use
+    # a word-count heuristic: split on whitespace for Latin, count CJK chars
+    # as individual "words".
+    effective_words = _count_effective_words(stripped)
+    if effective_words < 6 and not has_any_marker:
+        return (False, 0.0, matched)
+
+    # ── Rule 3b: Low word count with no markers → low importance ──
+    if effective_words < 15 and not has_any_marker:
         return (True, 0.5, matched)
 
     # ── Rule 5 & 6: Compute importance with marker boosts ──
@@ -115,6 +139,29 @@ def quality_gate_detailed(
     importance = min(importance, 5.0)
 
     return (True, importance, matched)
+
+
+def _count_effective_words(text: str) -> int:
+    """Count effective words, treating CJK characters as individual words.
+
+    Latin text is split on whitespace; each CJK character counts as one
+    "word" because a single hanzi/kanji carries roughly the same
+    information as an English word.
+    """
+    # CJK Unified Ideographs + common CJK ranges
+    cjk_re = re.compile(
+        r"[\u4e00-\u9fff"       # CJK Unified Ideographs
+        r"\u3400-\u4dbf"        # CJK Extension A
+        r"\uf900-\ufaff"        # CJK Compat Ideographs
+        r"\u3040-\u309f"        # Hiragana
+        r"\u30a0-\u30ff"        # Katakana
+        r"\uac00-\ud7af]"       # Hangul Syllables
+    )
+    cjk_count = len(cjk_re.findall(text))
+    # Remove CJK chars, then count remaining whitespace-separated tokens
+    latin_text = cjk_re.sub(" ", text).strip()
+    latin_words = len(latin_text.split()) if latin_text else 0
+    return cjk_count + latin_words
 
 
 def _count_prose_ratio(content: str) -> float:

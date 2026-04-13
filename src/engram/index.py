@@ -98,7 +98,10 @@ class IndexManager:
 
         # Initialize ChromaDB
         chroma_path = str(self._index_dir / "vectors.chroma")
-        self._chroma_client = chromadb.PersistentClient(path=chroma_path)
+        self._chroma_client = chromadb.PersistentClient(
+            path=chroma_path,
+            settings=chromadb.Settings(anonymized_telemetry=False),
+        )
         self._collection = self._chroma_client.get_or_create_collection(
             name=CHROMA_COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"},
