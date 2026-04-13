@@ -38,4 +38,4 @@ htmlcov/
 
 # uv
 uv.lock
-benchmarks/.cache/longmemeval/longmemeval_s_cleaned.json
+benchmarks/.cache
