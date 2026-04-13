@@ -237,7 +237,9 @@ def _parse_rerank_indices(
 # Temporal Query Detection & Reasoning
 # ═══════════════════════════════════════════════════════════════════════════
 
-_TEMPORAL_MARKERS = re.compile(
+# Fallback compiled regex for when no config is provided.
+# The canonical pattern list lives in config._BUILTIN_PATTERNS["temporal"]["markers"].
+_TEMPORAL_MARKERS_FALLBACK = re.compile(
     r"\b("
     r"when did|when was|when were|when is|when are|"
     r"how long ago|how many days|how many weeks|how many months|how many years|"
@@ -267,15 +269,29 @@ If you cannot determine the answer, say "Unable to determine from available memo
 Answer:"""
 
 
-def is_temporal_query(query: str) -> bool:
-    """Check if a query contains temporal markers."""
-    return bool(_TEMPORAL_MARKERS.search(query))
+def is_temporal_query(query: str, config=None) -> bool:
+    """
+    Check if a query contains temporal markers.
+
+    Args:
+        query: The search query string.
+        config: Optional EngramConfig — when provided, uses user-configured
+                temporal patterns (which may include non-English markers).
+    """
+    if config is not None:
+        patterns = config.temporal_markers
+        for pattern in patterns:
+            if re.search(pattern, query, re.IGNORECASE):
+                return True
+        return False
+    return bool(_TEMPORAL_MARKERS_FALLBACK.search(query))
 
 
 def answer_temporal(
     query: str,
     hits: list,
     think_fn: ThinkFn,
+    config=None,
 ) -> Optional[str]:
     """Reason about a time-related question.
 
@@ -283,11 +299,12 @@ def answer_temporal(
         query: The user's temporal question.
         hits: Search hits with content and timestamps.
         think_fn: Agent thinking function.
+        config: Optional EngramConfig for pattern configuration.
 
     Returns:
         An answer string, or None if reasoning fails or query is not temporal.
     """
-    if not is_temporal_query(query):
+    if not is_temporal_query(query, config):
         return None
 
     if not hits:
@@ -441,16 +458,16 @@ Instructions:
 Answer:"""
 
 
-def deep_search(
+def deep_search_simple(
     query: str,
     think_fn: ThinkFn,
     vector_hits: list,
     memory_listing: list,
 ) -> Optional[str]:
-    """LLM deep search: give LLM vector candidates + full file listing.
+    """LLM deep search (simple/fallback): give LLM vector candidates + full file listing.
 
-    The LLM reads the provided content and file listing to find answers
-    that vector search alone might miss.
+    This is the single-prompt version — all content is stuffed into one prompt.
+    For the agentic version that uses tools, see deep_search_tools.py + think_adapter.py.
 
     Args:
         query: The user's question.

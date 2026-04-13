@@ -139,6 +139,48 @@ def _evidence_to_session_ids(evidence_ids: List[str]) -> Set[str]:
     return session_ids
 
 
+def _build_result(
+    sample_id, question, answer, category, evidence_session_ids,
+    hits, sessions, memory_to_session, k_values,
+):
+    """Build a metrics result dict from hits."""
+    retrieved_ids = [h.id for h in hits]
+    retrieved_session_ids = [
+        memory_to_session.get(mid, mid) for mid in retrieved_ids
+    ]
+
+    result = {
+        "sample_id": sample_id,
+        "question": question,
+        "answer": answer,
+        "category": category,
+        "n_sessions": len(sessions),
+        "n_evidence": len(evidence_session_ids),
+        "evidence_sessions": sorted(evidence_session_ids),
+    }
+
+    for k in k_values:
+        result[f"recall@{k}"] = recall_at_k(
+            retrieved_session_ids, evidence_session_ids, k
+        )
+        result[f"strict_recall@{k}"] = strict_recall_at_k(
+            retrieved_session_ids, evidence_session_ids, k
+        )
+        result[f"ndcg@{k}"] = ndcg_at_k(
+            retrieved_session_ids, evidence_session_ids, k
+        )
+
+    result["mrr"] = mean_reciprocal_rank(
+        retrieved_session_ids, evidence_session_ids
+    )
+    result["first_hit_rank"] = rank_of_first_hit(
+        retrieved_session_ids, evidence_session_ids
+    )
+    result["top_retrieved"] = retrieved_session_ids[:5]
+
+    return result
+
+
 # ===========================================================================
 # Core benchmark runner
 # ===========================================================================
@@ -263,61 +305,68 @@ def evaluate_conversation(
 
             qa_tasks.append((question, answer, category, evidence_session_ids))
 
-        def _eval_one(task):
+        def _eval_one_sync(task):
+            """Evaluate one QA pair (no LLM calls)."""
             question, answer, category, evidence_session_ids = task
-
-            # Optional query rewrite via think_fn
             search_query = question
-            if think_fn and query_rewrite:
-                try:
-                    from engram.llm import rewrite_query
-                    search_query = rewrite_query(question, think_fn)
-                except Exception:
-                    pass
 
-            # Query — use think_fn path when available
-            if think_fn and use_deep_search:
-                # Deep search: give LLM all sessions + vector hits
-                from engram.llm import deep_search as _deep_search
+            if use_rerank:
+                hits = mgr.vector_search_reranked(
+                    query=search_query, config=config, n=max_k,
+                    candidates=config.rerank_candidates,
+                )
+            else:
+                hits = mgr.vector_search(query=search_query, n=max_k)
 
-                # Vector search for top candidates (still useful as hint)
+            return _build_result(
+                sample_id, question, answer, category, evidence_session_ids,
+                hits, sessions, memory_to_session, k_values,
+            )
+
+        async def _eval_one_async(task, sem, model):
+            """Evaluate one QA pair with async LLM calls."""
+            from benchmarks.think_adapter import async_think
+            question, answer, category, evidence_session_ids = task
+            search_query = question
+
+            if query_rewrite:
+                from engram.llm import _REWRITE_SYSTEM, _REWRITE_PROMPT
+                async with sem:
+                    rewritten = await async_think(
+                        _REWRITE_PROMPT.format(query=question),
+                        model=model, system=_REWRITE_SYSTEM,
+                    )
+                if rewritten and rewritten.strip() and 3 < len(rewritten.strip()) < 500:
+                    search_query = rewritten.strip().strip('"').strip("'")
+
+            if use_deep_search:
+                from benchmarks.think_adapter import deep_search_agent
+
+                # Vector search for hints
                 raw_hits = mgr.vector_search(query=search_query, n=max_k)
 
-                # Build memory listing from all sessions
-                memory_listing = []
-                for skey, date_str, text in sessions:
-                    memory_listing.append({
-                        "filename": f"{skey}.md",
-                        "id": skey,
-                        "project": "locomo",
-                        "created": date_str[:10] if date_str else "",
-                        "preview": text[:80],
-                        "content": text,
-                    })
+                # Agentic deep search — LLM uses tools to read memory files
+                async with sem:
+                    deep_answer = await deep_search_agent(
+                        query=question,
+                        model=model,
+                        base_dir=Path(config.base_dir),
+                        vector_hits=raw_hits,
+                        project="locomo",
+                    )
 
-                deep_answer = _deep_search(
-                    query=question,
-                    think_fn=think_fn,
-                    vector_hits=raw_hits,
-                    memory_listing=memory_listing,
-                )
-
-                # Extract session references from the LLM answer
-                # The LLM should cite session_N in its answer
-                if deep_answer:
+                if deep_answer and "NOT_FOUND" not in deep_answer:
+                    # Extract session references (session_N pattern in filenames)
                     found_sessions = set(re.findall(r'session_\d+', deep_answer))
-                    # Build hits: put referenced sessions first, then vector hits
                     seen = set()
                     hits = []
-                    for skey in sorted(found_sessions):
-                        mid = session_key_to_memory_id.get(skey)
+                    for sk in sorted(found_sessions):
+                        mid = session_key_to_memory_id.get(sk)
                         if mid:
-                            # Find this hit in raw_hits or create a synthetic one
                             matched = [h for h in raw_hits if h.id == mid]
                             if matched:
                                 hits.append(matched[0])
                             else:
-                                # Create synthetic hit for sessions not in vector results
                                 from engram.index import SearchHit
                                 hits.append(SearchHit(
                                     id=mid, content="", similarity=1.0,
@@ -334,74 +383,80 @@ def evaluate_conversation(
                 else:
                     hits = raw_hits[:max_k]
 
-            elif think_fn and use_rerank:
-                from engram.rerank import rerank
-                # Stage 1: vector search for broad candidates
+            elif use_rerank:
                 raw_hits = mgr.vector_search(query=search_query, n=20)
-                # Stage 2: LLM rerank via callback
                 if len(raw_hits) > max_k:
-                    hits = rerank(
-                        query=search_query,
-                        candidates=raw_hits,
-                        config=config,
-                        top_k=max_k,
-                        think_fn=think_fn,
+                    from engram.llm import (
+                        _RERANK_SYSTEM, _MAX_DOC_CHARS,
+                        _parse_rerank_indices,
                     )
+                    doc_lines = []
+                    for i, hit in enumerate(raw_hits):
+                        c = hit.content.replace("\n", " ").strip()
+                        if len(c) > _MAX_DOC_CHARS:
+                            c = c[:_MAX_DOC_CHARS] + "..."
+                        doc_lines.append(f"[{i+1}] {c}")
+                    docs_block = "\n".join(doc_lines)
+                    prompt = (
+                        f"Given a question and a list of documents, rank them by relevance.\n\n"
+                        f"Return ONLY a JSON array of document numbers (1-based), most relevant first. "
+                        f"Return the top {max_k} most relevant documents.\n\n"
+                        f"Example output: [3, 1, 7, 5, 2]\n\n"
+                        f"Question: {search_query}\n\nDocuments:\n{docs_block}\n\n"
+                        f"Output (top {max_k} document numbers, JSON array):"
+                    )
+                    async with sem:
+                        response = await async_think(
+                            prompt, model=model, system=_RERANK_SYSTEM,
+                        )
+                    if response:
+                        indices = _parse_rerank_indices(response, len(raw_hits), max_k)
+                        if indices:
+                            seen_idx = set()
+                            hits = []
+                            for idx in indices:
+                                if 0 <= idx < len(raw_hits) and idx not in seen_idx:
+                                    hits.append(raw_hits[idx])
+                                    seen_idx.add(idx)
+                                if len(hits) >= max_k:
+                                    break
+                            for i, h in enumerate(raw_hits):
+                                if i not in seen_idx:
+                                    hits.append(h)
+                                if len(hits) >= max_k:
+                                    break
+                        else:
+                            hits = raw_hits[:max_k]
+                    else:
+                        hits = raw_hits[:max_k]
                 else:
                     hits = raw_hits
-            elif use_rerank:
-                hits = mgr.vector_search_reranked(
-                    query=search_query, config=config, n=max_k,
-                    candidates=config.rerank_candidates,
-                )
             else:
                 hits = mgr.vector_search(query=search_query, n=max_k)
 
-            retrieved_ids = [h.id for h in hits]
-            retrieved_session_ids = [
-                memory_to_session.get(mid, mid) for mid in retrieved_ids
-            ]
-
-            # Metrics
-            result = {
-                "sample_id": sample_id,
-                "question": question,
-                "answer": answer,
-                "category": category,
-                "n_sessions": len(sessions),
-                "n_evidence": len(evidence_session_ids),
-                "evidence_sessions": sorted(evidence_session_ids),
-            }
-
-            for k in k_values:
-                result[f"recall@{k}"] = recall_at_k(
-                    retrieved_session_ids, evidence_session_ids, k
-                )
-                result[f"strict_recall@{k}"] = strict_recall_at_k(
-                    retrieved_session_ids, evidence_session_ids, k
-                )
-                result[f"ndcg@{k}"] = ndcg_at_k(
-                    retrieved_session_ids, evidence_session_ids, k
-                )
-
-            result["mrr"] = mean_reciprocal_rank(
-                retrieved_session_ids, evidence_session_ids
+            return _build_result(
+                sample_id, question, answer, category, evidence_session_ids,
+                hits, sessions, memory_to_session, k_values,
             )
-            result["first_hit_rank"] = rank_of_first_hit(
-                retrieved_session_ids, evidence_session_ids
-            )
-            result["top_retrieved"] = retrieved_session_ids[:5]
 
-            return result
-
-        # Run parallel when LLM is involved, serial otherwise
+        # Run: async parallel when LLM involved, sync serial otherwise
         if think_fn and (use_deep_search or use_rerank or query_rewrite):
-            import concurrent.futures
-            max_workers = 10
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-                results = list(pool.map(_eval_one, qa_tasks))
+            import asyncio as _aio
+            # Extract model name from think_fn (set by run_benchmark)
+            _model = getattr(think_fn, '_model', 'anthropic/claude-haiku-3-5-20241022')
+            sem = _aio.Semaphore(10)
+
+            async def _run_all():
+                tasks = [_eval_one_async(t, sem, _model) for t in qa_tasks]
+                return await _aio.gather(*tasks, return_exceptions=True)
+
+            raw_results = _aio.run(_run_all())
+            results = [r for r in raw_results if not isinstance(r, Exception)]
+            errors = [r for r in raw_results if isinstance(r, Exception)]
+            if errors:
+                print(f"    ! {len(errors)} QA pairs failed: {errors[0]}")
         else:
-            results = [_eval_one(t) for t in qa_tasks]
+            results = [_eval_one_sync(t) for t in qa_tasks]
 
         mgr.close()
 
@@ -446,6 +501,7 @@ def run_benchmark(
     if think_model:
         from .think_adapter import create_think_fn
         think_fn = create_think_fn(model=think_model)
+        think_fn._model = think_model  # stash for async path
         # Rerank is implied when think_fn is provided
         use_rerank = True
 

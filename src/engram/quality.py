@@ -3,45 +3,31 @@ quality.py — Quality gate for Engram memories.
 
 Filters out noise, boilerplate, and low-value content before storage.
 No LLM required — pure heuristic rules.
+
+Patterns are configurable via ``~/.engram/patterns.toml``.  Built-in English
+patterns are used by default; users can extend them with additional patterns
+(e.g. Chinese, Japanese) or replace them entirely by setting ``replace = true``.
 """
 
 import re
-from typing import Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
+
+if TYPE_CHECKING:
+    from .config import EngramConfig
 
 
-# Memory markers for importance boosting (reused from mempalace's general_extractor patterns)
-DECISION_MARKERS = [
-    r"\b(decided|chose|went with|picked|settled on|switched to)\b",
-    r"\b(instead of|rather than|over.*because)\b",
-    r"\b(trade-?off|pros and cons)\b",
-]
-
-MILESTONE_MARKERS = [
-    r"\b(shipped|launched|deployed|released|it works|got it working)\b",
-    r"\b(breakthrough|figured out|nailed it|cracked it)\b",
-    r"\b(finally|first time|first ever)\b",
-]
-
-PROBLEM_MARKERS = [
-    r"\b(the fix was|root cause|the problem was|solved by)\b",
-    r"\b(workaround|the answer was|resolved)\b",
-]
-
-NOISE_PATTERNS = [
-    r"^(ok|okay|sure|got it|thanks|thank you|yes|no|right|fine|cool|nice|great|yep|nope|alright)\s*[.!?]?\s*$",
-    r"^(sounds good|makes sense|understood|will do|on it|roger|ack|noted)\s*[.!?]?\s*$",
-    r"^(here'?s|let me|sure,?\s*i'?ll|i'?ll help|certainly|of course|absolutely)[,!.\s]",
-    r"^(i'?d be happy to|i can help|great question|good point)\s",
-]
-
-
-def quality_gate(content: str, source_type: str = "note") -> Tuple[bool, float]:
+def quality_gate(
+    content: str,
+    source_type: str = "note",
+    config: Optional["EngramConfig"] = None,
+) -> Tuple[bool, float]:
     """
     Evaluate whether content is worth storing and assign importance.
 
     Args:
         content: The text to evaluate
         source_type: "note" | "conversation" | "code" | "document"
+        config: EngramConfig instance (optional — uses defaults if None)
 
     Returns:
         (should_store: bool, importance: float)
@@ -69,9 +55,24 @@ def quality_gate(content: str, source_type: str = "note") -> Tuple[bool, float]:
     stripped = content.strip()
     lower = stripped.lower()
 
+    # ── Load patterns from config (or builtins) ──
+    if config is not None:
+        decision_markers = config.quality_decision_markers
+        milestone_markers = config.quality_milestone_markers
+        problem_markers = config.quality_problem_markers
+        noise_patterns = config.quality_noise_patterns
+    else:
+        from .config import _BUILTIN_PATTERNS
+
+        _qp = _BUILTIN_PATTERNS["quality"]
+        decision_markers = _qp["decision_markers"]
+        milestone_markers = _qp["milestone_markers"]
+        problem_markers = _qp["problem_markers"]
+        noise_patterns = _qp["noise_patterns"]
+
     # ── Rule 4: Noise patterns (check before short-content rule so
     #    "ok" doesn't sneak through as a short-but-stored note) ──
-    for pattern in NOISE_PATTERNS:
+    for pattern in noise_patterns:
         if re.search(pattern, lower, re.IGNORECASE):
             return (False, 0.0)
 
@@ -82,9 +83,9 @@ def quality_gate(content: str, source_type: str = "note") -> Tuple[bool, float]:
             return (False, 0.0)
 
     # ── Helper: check for any memory markers ──
-    has_decision = any(re.search(p, lower) for p in DECISION_MARKERS)
-    has_milestone = any(re.search(p, lower) for p in MILESTONE_MARKERS)
-    has_problem = any(re.search(p, lower) for p in PROBLEM_MARKERS)
+    has_decision = any(re.search(p, lower) for p in decision_markers)
+    has_milestone = any(re.search(p, lower) for p in milestone_markers)
+    has_problem = any(re.search(p, lower) for p in problem_markers)
     has_any_marker = has_decision or has_milestone or has_problem
 
     # ── Rule 3: Too short (< 50 chars) with no markers ──

@@ -1,0 +1,53 @@
+{
+  "dataset": "locomo",
+  "total_qa": 150,
+  "n_conversations": 1,
+  "rerank": true,
+  "deep_search": true,
+  "think_model": "anthropic/claude-haiku-3-5-20241022",
+  "query_rewrite": false,
+  "elapsed_seconds": 245.6,
+  "timestamp": "2026-04-13T17:13:36.722568",
+  "overall": {
+    "recall@3": 0.5267,
+    "strict_recall@3": 0.4749,
+    "ndcg@3": 0.4522,
+    "recall@5": 0.5733,
+    "strict_recall@5": 0.5277,
+    "ndcg@5": 0.4749,
+    "recall@10": 0.68,
+    "strict_recall@10": 0.6326,
+    "ndcg@10": 0.5123,
+    "mrr": 0.4963
+  },
+  "by_category": {
+    "commonsense": {
+      "count": 70,
+      "recall@3": 0.4714,
+      "recall@5": 0.4857,
+      "recall@10": 0.5571,
+      "mrr": 0.4404
+    },
+    "multi-hop": {
+      "count": 37,
+      "recall@3": 0.5946,
+      "recall@5": 0.6486,
+      "recall@10": 0.7838,
+      "mrr": 0.5938
+    },
+    "single-hop": {
+      "count": 32,
+      "recall@3": 0.5625,
+      "recall@5": 0.6562,
+      "recall@10": 0.8125,
+      "mrr": 0.5148
+    },
+    "temporal": {
+      "count": 11,
+      "recall@3": 0.5455,
+      "recall@5": 0.6364,
+      "recall@10": 0.7273,
+      "mrr": 0.4706
+    }
+  }
+}

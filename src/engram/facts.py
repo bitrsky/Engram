@@ -441,6 +441,7 @@ def add_fact(
     source_text: str = "",
     facts_dir: Optional[str | Path] = None,
     exclusive_predicates: Optional[Dict[str, str]] = None,
+    supersede_signals: Optional[List[str]] = None,
 ) -> dict:
     """
     Add a new fact to a project's facts file.
@@ -502,7 +503,7 @@ def add_fact(
         source=source_text,  # classify_conflict reads source from fact
         since=since or datetime.now().strftime("%Y-%m"),
     )
-    conflict = check_conflict(fact_for_check, data["current"], preds)
+    conflict = check_conflict(fact_for_check, data["current"], preds, supersede_signals)
 
     if conflict is None:
         # No conflict — just add the fact

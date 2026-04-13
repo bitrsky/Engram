@@ -1,8 +1,8 @@
-"""
+﻿"""
 test_llm.py -- Unit tests for the LLM callback protocol and prompt builders.
 
 Tests query rewrite, reranking via callback, temporal reasoning, and fact
-extraction via callback — all with mocked LLM functions (no real LLM needed).
+extraction via callback â€” all with mocked LLM functions (no real LLM needed).
 """
 
 import pytest
@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────
+# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @dataclass
@@ -48,9 +48,9 @@ def make_none_think_fn():
     return think_fn
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # ThinkFn Protocol
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestThinkFnProtocol:
@@ -71,9 +71,9 @@ class TestThinkFnProtocol:
         assert isinstance(fn, ThinkFn)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Query Rewrite
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestRewriteQuery:
@@ -131,9 +131,9 @@ class TestRewriteQuery:
         assert result == "what auth?"
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Reranking via Callback
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestRerankWithLLM:
@@ -233,9 +233,9 @@ class TestRerankWithLLM:
         assert result[2].id == "a"
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Parse Rerank Indices
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestParseRerankIndices:
@@ -272,9 +272,9 @@ class TestParseRerankIndices:
         assert _parse_rerank_indices("I cannot rank", n_candidates=10, top_k=5) is None
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Temporal Query Detection
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestTemporalQuery:
@@ -311,9 +311,9 @@ class TestTemporalQuery:
         assert is_temporal_query("explain the auth architecture") is False
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Temporal Reasoning
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestAnswerTemporal:
@@ -372,9 +372,9 @@ class TestAnswerTemporal:
         assert result is None
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Fact Extraction via Callback
-# ═══════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestExtractFactsViaCallback:
@@ -412,7 +412,7 @@ class TestExtractFactsViaCallback:
         existing = [MockFact("saas-app", "uses", "Auth0")]
 
         llm_response = '''[
-            {"subject": "saas-app", "predicate": "uses", "object": "Clerk", "confidence": 0.9, "temporal": "", "conflicts_with": "saas-app → uses → Auth0"}
+            {"subject": "saas-app", "predicate": "uses", "object": "Clerk", "confidence": 0.9, "temporal": "", "conflicts_with": "saas-app â†’ uses â†’ Auth0"}
         ]'''
 
         think_fn = make_think_fn(llm_response)
@@ -424,7 +424,7 @@ class TestExtractFactsViaCallback:
         )
 
         assert len(facts) == 1
-        assert facts[0].conflicts_with == "saas-app → uses → Auth0"
+        assert facts[0].conflicts_with == "saas-app â†’ uses â†’ Auth0"
 
     def test_extraction_on_failure_returns_empty(self):
         from engram.llm import extract_facts_via_callback
@@ -457,7 +457,7 @@ class TestDeepSearch:
     """Test the deep_search() function."""
 
     def test_deep_search_finds_answer(self):
-        from engram.llm import deep_search
+        from engram.llm import deep_search_simple as deep_search
 
         hits = [MockSearchHit(id="session_5", content="Alice went to the park")]
         listing = [
@@ -475,7 +475,7 @@ class TestDeepSearch:
         assert "climate change" in result
 
     def test_deep_search_returns_none_on_not_found(self):
-        from engram.llm import deep_search
+        from engram.llm import deep_search_simple as deep_search
 
         listing = [
             {"filename": "session_1.md", "id": "s1", "created": "2024-01-01",
@@ -489,7 +489,7 @@ class TestDeepSearch:
         assert result is None
 
     def test_deep_search_returns_none_on_empty_listing(self):
-        from engram.llm import deep_search
+        from engram.llm import deep_search_simple as deep_search
 
         def mock_think(prompt, system="", **kw):
             return "Some answer"
@@ -498,7 +498,7 @@ class TestDeepSearch:
         assert result is None
 
     def test_deep_search_returns_none_on_failure(self):
-        from engram.llm import deep_search
+        from engram.llm import deep_search_simple as deep_search
 
         listing = [{"filename": "a.md", "id": "a", "created": "", "preview": "x", "content": "x"}]
 

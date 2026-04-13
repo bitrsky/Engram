@@ -123,7 +123,7 @@ def search(
     deep_answer = None
     if think_fn is not None and config.deep_search_enabled:
         try:
-            from .llm import deep_search as _deep_search
+            from .llm import deep_search_simple as _deep_search
             from .store import list_memories
 
             # Get all memory files for context
@@ -156,7 +156,7 @@ def search(
     if think_fn is not None and config.temporal_reasoning_enabled and raw_hits:
         try:
             from .llm import answer_temporal
-            temporal_answer = answer_temporal(original_query, raw_hits, think_fn)
+            temporal_answer = answer_temporal(original_query, raw_hits, think_fn, config=config)
         except Exception:
             pass
 

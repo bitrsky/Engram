@@ -139,7 +139,7 @@ def remember(
 
     # ── Step 1: Quality gate ─────────────────────────────────────────────
     if not skip_quality_check:
-        should_store, importance = quality_gate(content, source)
+        should_store, importance = quality_gate(content, source, config=config)
         if not should_store:
             return RememberResult(success=False, rejected_reason="low_quality")
     else:
@@ -337,6 +337,7 @@ def _extract_and_add_facts(
                 source_text=candidate.source_text,
                 facts_dir=config.facts_dir,
                 exclusive_predicates=config.exclusive_predicates,
+                supersede_signals=config.conflict_supersede_signals,
             )
 
             if fact_result.get("added"):

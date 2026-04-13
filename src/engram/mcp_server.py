@@ -506,6 +506,7 @@ def engram_learn_fact(
             source_text="",
             facts_dir=config.facts_dir,
             exclusive_predicates=config.exclusive_predicates,
+            supersede_signals=config.conflict_supersede_signals,
         )
 
         if result.get("added"):

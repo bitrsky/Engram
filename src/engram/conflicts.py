@@ -44,7 +44,10 @@ DEFAULT_EXCLUSIVE_PREDICATES = {
 }
 
 # Patterns that indicate one thing is replacing another
-SUPERSEDE_SIGNALS = [
+# NOTE: Built-in patterns have moved to config._BUILTIN_PATTERNS.
+# This module-level list is kept ONLY for backwards compatibility when
+# detect_conflicts / check_conflict is called without a config object.
+_FALLBACK_SUPERSEDE_SIGNALS = [
     r"\bswitch(ed|ing)?\s+(to|from)\b",
     r"\bmigrat(e|ed|ing)\s+(to|from)\b",
     r"\breplac(e|ed|ing)\b",
@@ -115,11 +118,12 @@ def _is_active(fact: Fact) -> bool:
     return not fact.expired_at
 
 
-def _has_supersede_signal(text: str) -> bool:
+def _has_supersede_signal(text: str, signals: Optional[List[str]] = None) -> bool:
     """Check if text contains language implying replacement/switching."""
     if not text:
         return False
-    for pattern in SUPERSEDE_SIGNALS:
+    patterns = signals if signals is not None else _FALLBACK_SUPERSEDE_SIGNALS
+    for pattern in patterns:
         if re.search(pattern, text, re.IGNORECASE):
             return True
     return False
@@ -161,6 +165,7 @@ def check_conflict(
     new_fact: Fact,
     existing_facts: List[Fact],
     exclusive_predicates: Optional[Dict[str, str]] = None,
+    supersede_signals: Optional[List[str]] = None,
 ) -> Optional[Conflict]:
     """
     Check if a new fact conflicts with any existing facts.
@@ -209,6 +214,7 @@ def check_conflict(
                 old_fact=existing,
                 new_fact=new_fact,
                 source_text=new_fact.source,
+                supersede_signals=supersede_signals,
             )
             return Conflict(
                 old_fact=existing,
@@ -224,13 +230,14 @@ def classify_conflict(
     old_fact: Fact,
     new_fact: Fact,
     source_text: str = "",
+    supersede_signals: Optional[List[str]] = None,
 ) -> str:
     """
     Classify a conflict into one of 4 types.
 
     Logic:
     1. If both have temporal info AND new is later → "temporal_succession"
-    2. If source_text matches SUPERSEDE_SIGNALS → "implicit_supersede"
+    2. If source_text matches supersede signals → "implicit_supersede"
     3. If predicate is in OPINION_PREDICATES → "opinion_change"
     4. Otherwise → "hard_contradiction"
 
@@ -242,7 +249,7 @@ def classify_conflict(
             return "temporal_succession"
 
     # 2. Implicit supersede: the source text uses replacement language
-    if _has_supersede_signal(source_text):
+    if _has_supersede_signal(source_text, supersede_signals):
         return "implicit_supersede"
 
     # 3. Opinion change: the predicate is an opinion/preference
