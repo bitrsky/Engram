@@ -85,6 +85,32 @@ pip install engram[mcp]
 
 12 tools available: `engram_status`, `engram_search`, `engram_recall`, `engram_facts`, `engram_timeline`, `engram_conflicts`, `engram_list_projects`, `engram_wake_up`, `engram_remember`, `engram_learn_fact`, `engram_forget_fact`, `engram_resolve_conflict`.
 
+## Benchmarks
+
+Engram ships with a 4-layer internal benchmark suite **plus** adapters for two academic memory benchmarks:
+
+| Benchmark | Questions | What it tests |
+|---|---|---|
+| **Internal** (synthetic) | 100 | Retrieval recall, pipeline quality, conflict detection, end-to-end |
+| **[LongMemEval](https://github.com/xiaowu0162/LongMemEval)** | 500 | 5 memory abilities across 40–500 session haystacks |
+| **[LoCoMo](https://github.com/snap-research/locomo)** | ~200 | Long-term conversational memory (10 convos, ~300 turns each) |
+
+External datasets are **downloaded at runtime** (cached in `.cache/`, never committed to repo).
+
+```bash
+cd packages/engram
+
+# Internal benchmarks (pytest-based)
+python -m benchmarks.run_benchmark                     # all layers
+python -m benchmarks.run_benchmark --layer retrieval   # retrieval recall only
+
+# Academic benchmarks (standalone scripts)
+python -m benchmarks.bench_longmemeval                 # LongMemEval_S (auto-downloads)
+python -m benchmarks.bench_locomo                      # LoCoMo (auto-downloads)
+```
+
+See [`benchmarks/BENCHMARKS.md`](benchmarks/BENCHMARKS.md) for detailed results and methodology.
+
 ## LLM Configuration (Optional)
 
 Engram works without any LLM. To enable AI-powered fact extraction:

@@ -1,0 +1,1002 @@
+[
+  {
+    "id": "q01",
+    "question": "What auth provider does the SaaS app use for customer authentication?",
+    "category": "single_session",
+    "evidence_session_ids": ["s01"],
+    "answer": "Clerk",
+    "answer_aliases": ["Clerk Auth", "clerk"],
+    "difficulty": "easy",
+    "split": "dev"
+  },
+  {
+    "id": "q02",
+    "question": "What database does the SaaS app use?",
+    "category": "single_session",
+    "evidence_session_ids": ["s02"],
+    "answer": "PostgreSQL",
+    "answer_aliases": ["Postgres", "postgres", "postgresql"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q03",
+    "question": "What frontend framework is used for the SaaS app?",
+    "category": "single_session",
+    "evidence_session_ids": ["s03"],
+    "answer": "Next.js 14",
+    "answer_aliases": ["Next.js", "nextjs", "NextJS"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q04",
+    "question": "Where is the backend deployed?",
+    "category": "single_session",
+    "evidence_session_ids": ["s04"],
+    "answer": "Railway",
+    "answer_aliases": ["railway"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q05",
+    "question": "What payment processor does the SaaS app use?",
+    "category": "single_session",
+    "evidence_session_ids": ["s05"],
+    "answer": "Stripe",
+    "answer_aliases": ["stripe"],
+    "difficulty": "easy",
+    "split": "dev"
+  },
+  {
+    "id": "q06",
+    "question": "Who is the lead frontend developer?",
+    "category": "single_session",
+    "evidence_session_ids": ["s06"],
+    "answer": "Maya",
+    "answer_aliases": ["maya"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q07",
+    "question": "What framework is the API built with?",
+    "category": "single_session",
+    "evidence_session_ids": ["s07"],
+    "answer": "FastAPI",
+    "answer_aliases": ["fastapi", "fast api"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q08",
+    "question": "What error tracking tool does the team use?",
+    "category": "single_session",
+    "evidence_session_ids": ["s08"],
+    "answer": "Sentry",
+    "answer_aliases": ["sentry"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q09",
+    "question": "What test framework is used for the Python backend?",
+    "category": "single_session",
+    "evidence_session_ids": ["s09"],
+    "answer": "pytest",
+    "answer_aliases": ["Pytest"],
+    "difficulty": "easy",
+    "split": "dev"
+  },
+  {
+    "id": "q10",
+    "question": "What tool is used for dependency security scanning?",
+    "category": "single_session",
+    "evidence_session_ids": ["s10"],
+    "answer": "Snyk",
+    "answer_aliases": ["snyk"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q11",
+    "question": "What message queue is used for the notification system and what channels does it support?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s11", "s12"],
+    "answer": "RabbitMQ with email (SendGrid), SMS (Twilio), and in-app (WebSocket) channels",
+    "answer_aliases": ["RabbitMQ"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q12",
+    "question": "What optimizations were made to improve dashboard performance?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s13", "s14"],
+    "answer": "Materialized views refreshing every 5 minutes and Redis caching for user profiles with 10-minute TTL",
+    "answer_aliases": ["materialized view", "Redis caching"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q13",
+    "question": "How does the GDPR data deletion process work end-to-end?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s15", "s16"],
+    "answer": "Soft delete immediately, physical deletion in nightly batch, analytics anonymization via batch job, 90-day retention after account deletion",
+    "answer_aliases": ["soft delete", "nightly batch"],
+    "difficulty": "hard",
+    "split": "test"
+  },
+  {
+    "id": "q14",
+    "question": "What are the workspace roles and their permissions?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s17", "s18"],
+    "answer": "Owner (transfer ownership), Admin (manage members), Member (create/edit), Viewer (read-only). With audit logging retained 1 year (3 years for Enterprise).",
+    "answer_aliases": ["owner, admin, member, viewer"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q15",
+    "question": "What CDN solution is used and what infrastructure is it protecting?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s19", "s20"],
+    "answer": "Cloudflare in front of Vercel, also handling DNS and SSL certificates",
+    "answer_aliases": ["Cloudflare"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q16",
+    "question": "How do notification priorities work and what channels do critical notifications use?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s11", "s12"],
+    "answer": "Four priority levels (critical, high, normal, low). Critical notifications go through all three channels simultaneously.",
+    "answer_aliases": ["critical goes through all channels"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q17",
+    "question": "What is the total monthly infrastructure cost and what are the main components?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s04", "s20"],
+    "answer": "$350/month: Railway $120, Vercel $20, Cloudflare $0, Datadog $150, misc $60",
+    "answer_aliases": ["$350", "350 dollars"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q18",
+    "question": "What testing tools and coverage thresholds does the team use?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s09", "s36"],
+    "answer": "Vitest for unit, Playwright for E2E, pytest for backend. 80% backend coverage, 60% frontend. Ruff for Python linting, Biome for TypeScript.",
+    "answer_aliases": ["Vitest", "Playwright", "80%"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q19",
+    "question": "What project management tool and methodology does the team use?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s37", "s34"],
+    "answer": "Linear with two-week sprints, async updates (no daily standups), Friday retrospectives, small PRs under 400 lines, squash merges",
+    "answer_aliases": ["Linear"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q20",
+    "question": "Who handles what role on the team and what are their tool preferences?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s06", "s31", "s32", "s33"],
+    "answer": "Maya: frontend lead, VS Code, Warp terminal, Raycast. Alex: backend, Neovim, Rust enthusiast. Jordan: DevOps, Pulumi, Docker Compose.",
+    "answer_aliases": ["Maya", "Alex", "Jordan"],
+    "difficulty": "hard",
+    "split": "test"
+  },
+  {
+    "id": "q21",
+    "question": "What database was used before PostgreSQL?",
+    "category": "temporal",
+    "evidence_session_ids": ["s21", "s22"],
+    "answer": "MySQL 8.0",
+    "answer_aliases": ["MySQL", "mysql"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q22",
+    "question": "When did the database migration from MySQL to PostgreSQL complete?",
+    "category": "temporal",
+    "evidence_session_ids": ["s22", "s23"],
+    "answer": "March 15th, 2025",
+    "answer_aliases": ["March 15", "2025-03-15"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q23",
+    "question": "What state management library did Maya switch from and to?",
+    "category": "temporal",
+    "evidence_session_ids": ["s24", "s25"],
+    "answer": "Switched from Redux Toolkit to Zustand on April 5th",
+    "answer_aliases": ["Redux to Zustand"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q24",
+    "question": "What email service was used before SendGrid?",
+    "category": "temporal",
+    "evidence_session_ids": ["s26", "s27"],
+    "answer": "Mailgun",
+    "answer_aliases": ["mailgun"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q25",
+    "question": "What CI/CD platform did the team migrate from and to, and when?",
+    "category": "temporal",
+    "evidence_session_ids": ["s28", "s29"],
+    "answer": "Migrated from CircleCI to GitHub Actions on March 25th",
+    "answer_aliases": ["CircleCI to GitHub Actions"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q26",
+    "question": "What was the chronological order of hosting providers for the backend?",
+    "category": "temporal",
+    "evidence_session_ids": ["s46", "s47"],
+    "answer": "Heroku first, then migrated to Railway on February 28th",
+    "answer_aliases": ["Heroku then Railway"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q27",
+    "question": "What search engine was replaced and when?",
+    "category": "temporal",
+    "evidence_session_ids": ["s48", "s49"],
+    "answer": "Elasticsearch was replaced by Meilisearch on March 5th",
+    "answer_aliases": ["Elasticsearch to Meilisearch"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q28",
+    "question": "What caching system was used before Redis and why was it replaced?",
+    "category": "temporal",
+    "evidence_session_ids": ["s50"],
+    "answer": "Memcached was replaced by Redis on April 10th because they needed pub/sub and Redis Streams",
+    "answer_aliases": ["Memcached to Redis"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q29",
+    "question": "How did build times change across CI/CD platforms?",
+    "category": "temporal",
+    "evidence_session_ids": ["s28", "s29"],
+    "answer": "CircleCI: 8 min → optimized to 6 min. GitHub Actions: 4 min with larger runners.",
+    "answer_aliases": ["8 minutes to 4 minutes"],
+    "difficulty": "hard",
+    "split": "test"
+  },
+  {
+    "id": "q30",
+    "question": "What was the performance improvement from the database migration?",
+    "category": "temporal",
+    "evidence_session_ids": ["s22", "s23"],
+    "answer": "Analytics queries became 4x faster after migrating from MySQL to PostgreSQL",
+    "answer_aliases": ["4x faster"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q31",
+    "question": "What is Maya's favorite code editor and theme?",
+    "category": "preference",
+    "evidence_session_ids": ["s31"],
+    "answer": "VS Code with Vitesse Dark theme",
+    "answer_aliases": ["VS Code", "Vitesse Dark"],
+    "difficulty": "easy",
+    "split": "dev"
+  },
+  {
+    "id": "q32",
+    "question": "What editor does Alex use and what's his favorite language?",
+    "category": "preference",
+    "evidence_session_ids": ["s32"],
+    "answer": "Neovim with lazy.nvim plugins. Favorite language is Rust (but writes Python)",
+    "answer_aliases": ["Neovim", "Rust"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q33",
+    "question": "What is Jordan's opinion on Kubernetes?",
+    "category": "preference",
+    "evidence_session_ids": ["s33"],
+    "answer": "Kubernetes is overkill for their scale. Prefers Docker Compose for staging and Railway for production.",
+    "answer_aliases": ["overkill", "Docker Compose"],
+    "difficulty": "easy",
+    "split": "dev"
+  },
+  {
+    "id": "q34",
+    "question": "What is the team lead's preference for pull request size?",
+    "category": "preference",
+    "evidence_session_ids": ["s34"],
+    "answer": "Small PRs under 400 lines. Big PRs get rubber-stamped.",
+    "answer_aliases": ["under 400 lines", "small PRs"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q35",
+    "question": "How does the team prefer to generate API documentation?",
+    "category": "preference",
+    "evidence_session_ids": ["s35"],
+    "answer": "OpenAPI specs generated from code annotations, not hand-written YAML. User docs on Mintlify.",
+    "answer_aliases": ["code-first", "Mintlify"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q36",
+    "question": "What linting tools does the team use and why?",
+    "category": "preference",
+    "evidence_session_ids": ["s36"],
+    "answer": "Ruff for Python (not flake8), Biome for TypeScript (not ESLint). Format on save, CI enforcement.",
+    "answer_aliases": ["Ruff", "Biome"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q37",
+    "question": "Why did the team choose Linear over Jira?",
+    "category": "preference",
+    "evidence_session_ids": ["s37"],
+    "answer": "Jira is too bloated. Team unanimously chose Linear.",
+    "answer_aliases": ["Jira too bloated", "Linear"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q38",
+    "question": "What is the team's debugging methodology?",
+    "category": "preference",
+    "evidence_session_ids": ["s38"],
+    "answer": "Add structured logging first, then reproduce. Never guess. Uses structlog with request_id, user_id, endpoint fields.",
+    "answer_aliases": ["structured logging", "structlog"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q39",
+    "question": "What is Alex's opinion on ORMs?",
+    "category": "preference",
+    "evidence_session_ids": ["s39"],
+    "answer": "Alex thinks ORMs are a mistake. Prefers raw SQL with SQLAlchemy Core. But team uses Prisma anyway (outvoted).",
+    "answer_aliases": ["ORMs are a mistake", "SQLAlchemy Core"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q40",
+    "question": "What is Maya's design philosophy for responsive design?",
+    "category": "preference",
+    "evidence_session_ids": ["s40"],
+    "answer": "Mobile-first always, starts at 375px viewport. Minimum 44x44px touch targets, minimum 16px font size.",
+    "answer_aliases": ["mobile-first", "375px", "44x44"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q41",
+    "question": "Does the SaaS app use the Clark API for customer authentication?",
+    "category": "adversarial",
+    "evidence_session_ids": ["s41", "s01"],
+    "answer": "No. Clark API is for internal admin (uses API keys). Customer auth uses Clerk (OAuth/social).",
+    "answer_aliases": ["No", "Clerk not Clark"],
+    "difficulty": "hard",
+    "split": "test"
+  },
+  {
+    "id": "q42",
+    "question": "Does the SaaS app use MongoDB?",
+    "category": "adversarial",
+    "evidence_session_ids": ["s42"],
+    "answer": "No. MongoDB was considered for audit logs but rejected. They use JSONB columns in PostgreSQL instead.",
+    "answer_aliases": ["No", "JSONB in PostgreSQL"],
+    "difficulty": "hard",
+    "split": "test"
+  },
+  {
+    "id": "q43",
+    "question": "Is Vue.js used in the SaaS app?",
+    "category": "adversarial",
+    "evidence_session_ids": ["s43"],
+    "answer": "No. Vue.js is used for the marketing site only. The SaaS app uses Next.js.",
+    "answer_aliases": ["No", "marketing site only"],
+    "difficulty": "hard",
+    "split": "dev"
+  },
+  {
+    "id": "q44",
+    "question": "Does the SaaS app provide a GraphQL API?",
+    "category": "adversarial",
+    "evidence_session_ids": ["s44"],
+    "answer": "No. REST only for V1. GraphQL might be added later if demand grows.",
+    "answer_aliases": ["No", "REST only"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q45",
+    "question": "Does the SaaS app use Firebase Auth?",
+    "category": "adversarial",
+    "evidence_session_ids": ["s45", "s01"],
+    "answer": "No. Firebase was mentioned in an old README as an option during evaluation but they chose Clerk.",
+    "answer_aliases": ["No", "Clerk"],
+    "difficulty": "hard",
+    "split": "test"
+  },
+  {
+    "id": "q46",
+    "question": "What hosting provider does the backend currently use?",
+    "category": "knowledge_update",
+    "evidence_session_ids": ["s47"],
+    "answer": "Railway (migrated from Heroku on February 28th)",
+    "answer_aliases": ["Railway"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q47",
+    "question": "What search engine does the SaaS app currently use?",
+    "category": "knowledge_update",
+    "evidence_session_ids": ["s49"],
+    "answer": "Meilisearch (switched from Elasticsearch on March 5th)",
+    "answer_aliases": ["Meilisearch"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q48",
+    "question": "What state management library is currently used in the frontend?",
+    "category": "knowledge_update",
+    "evidence_session_ids": ["s25"],
+    "answer": "Zustand (switched from Redux Toolkit on April 5th)",
+    "answer_aliases": ["Zustand"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q49",
+    "question": "What caching system does the SaaS app currently use?",
+    "category": "knowledge_update",
+    "evidence_session_ids": ["s50"],
+    "answer": "Redis (switched from Memcached on April 10th)",
+    "answer_aliases": ["Redis"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q50",
+    "question": "What CI/CD platform does the team currently use?",
+    "category": "knowledge_update",
+    "evidence_session_ids": ["s29"],
+    "answer": "GitHub Actions (migrated from CircleCI on March 25th)",
+    "answer_aliases": ["GitHub Actions"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q51",
+    "question": "What ORM does the SaaS app use?",
+    "category": "single_session",
+    "evidence_session_ids": ["s02"],
+    "answer": "Prisma",
+    "answer_aliases": ["prisma"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q52",
+    "question": "What CSS framework is used for styling?",
+    "category": "single_session",
+    "evidence_session_ids": ["s03"],
+    "answer": "Tailwind CSS",
+    "answer_aliases": ["Tailwind", "tailwindcss"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q53",
+    "question": "What are the pricing tiers for the SaaS app?",
+    "category": "single_session",
+    "evidence_session_ids": ["s05"],
+    "answer": "Free (100 API calls/day), Pro ($29/mo, 10k calls/day), Enterprise (custom pricing)",
+    "answer_aliases": ["Free, Pro, Enterprise"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q54",
+    "question": "What rate limiting configuration is used for the API?",
+    "category": "single_session",
+    "evidence_session_ids": ["s07"],
+    "answer": "Redis-backed middleware at 100 requests per minute for free tier",
+    "answer_aliases": ["100 requests per minute"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q55",
+    "question": "What infrastructure monitoring tool does the team use?",
+    "category": "single_session",
+    "evidence_session_ids": ["s08"],
+    "answer": "Datadog",
+    "answer_aliases": ["datadog"],
+    "difficulty": "easy",
+    "split": "dev"
+  },
+  {
+    "id": "q56",
+    "question": "What is the code coverage target for the backend?",
+    "category": "single_session",
+    "evidence_session_ids": ["s09"],
+    "answer": "80%",
+    "answer_aliases": ["80 percent", "eighty percent"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q57",
+    "question": "Who handles DevOps on the team?",
+    "category": "single_session",
+    "evidence_session_ids": ["s06"],
+    "answer": "Jordan",
+    "answer_aliases": ["jordan"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q58",
+    "question": "What component library does the frontend use?",
+    "category": "single_session",
+    "evidence_session_ids": ["s03"],
+    "answer": "shadcn/ui",
+    "answer_aliases": ["shadcn", "shadcn-ui"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q59",
+    "question": "What uptime monitoring tool is used?",
+    "category": "single_session",
+    "evidence_session_ids": ["s08"],
+    "answer": "Better Uptime",
+    "answer_aliases": ["better uptime", "BetterUptime"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q60",
+    "question": "Where do alerts get sent?",
+    "category": "single_session",
+    "evidence_session_ids": ["s08"],
+    "answer": "Dedicated Slack channel #saas-alerts",
+    "answer_aliases": ["#saas-alerts", "Slack"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q61",
+    "question": "What was the dashboard load time before and after optimization?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s13", "s14"],
+    "answer": "Before: 3.2 seconds. After: under 1 second (800ms with materialized view, sub-second with Redis caching)",
+    "answer_aliases": ["3.2s to 800ms"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q62",
+    "question": "How long are billing records retained for compliance?",
+    "category": "single_session",
+    "evidence_session_ids": ["s15"],
+    "answer": "7 years",
+    "answer_aliases": ["seven years"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q63",
+    "question": "How long are audit logs retained for the Enterprise tier?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s18"],
+    "answer": "3 years (1 year for standard, 3 years for Enterprise)",
+    "answer_aliases": ["3 years", "three years"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q64",
+    "question": "What are the current beta metrics?",
+    "category": "single_session",
+    "evidence_session_ids": ["s30"],
+    "answer": "32 DAU out of 50 beta users (64%). NPS score 67. Main feedback: confusing onboarding.",
+    "answer_aliases": ["32 DAU", "NPS 67"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q65",
+    "question": "When is the public launch planned?",
+    "category": "single_session",
+    "evidence_session_ids": ["s30"],
+    "answer": "May 15th",
+    "answer_aliases": ["May 15", "2025-05-15"],
+    "difficulty": "easy",
+    "split": "dev"
+  },
+  {
+    "id": "q66",
+    "question": "What email provider is currently used and why was the previous one replaced?",
+    "category": "temporal",
+    "evidence_session_ids": ["s26", "s27"],
+    "answer": "SendGrid (replaced Mailgun because delivery rates dropped below 95%)",
+    "answer_aliases": ["SendGrid"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q67",
+    "question": "What data export format is used for GDPR compliance?",
+    "category": "single_session",
+    "evidence_session_ids": ["s15"],
+    "answer": "JSON",
+    "answer_aliases": ["json"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q68",
+    "question": "What is Jordan's preferred IaC tool?",
+    "category": "preference",
+    "evidence_session_ids": ["s33"],
+    "answer": "Pulumi (not Terraform)",
+    "answer_aliases": ["Pulumi"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q69",
+    "question": "What terminal does Maya use?",
+    "category": "preference",
+    "evidence_session_ids": ["s31"],
+    "answer": "Warp",
+    "answer_aliases": ["warp", "Warp terminal"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q70",
+    "question": "What Neovim plugin manager does Alex use?",
+    "category": "preference",
+    "evidence_session_ids": ["s32"],
+    "answer": "lazy.nvim",
+    "answer_aliases": ["lazy.nvim", "lazy nvim"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q71",
+    "question": "How much did the search engine switch save monthly?",
+    "category": "temporal",
+    "evidence_session_ids": ["s48", "s49"],
+    "answer": "$37/month ($45 for Elasticsearch vs $8 for Meilisearch)",
+    "answer_aliases": ["$37", "37 dollars"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q72",
+    "question": "What was the bundle size reduction from the state management migration?",
+    "category": "temporal",
+    "evidence_session_ids": ["s25"],
+    "answer": "12KB reduction when switching from Redux to Zustand",
+    "answer_aliases": ["12KB", "12 KB"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q73",
+    "question": "What structured logging library does the Python backend use?",
+    "category": "preference",
+    "evidence_session_ids": ["s38"],
+    "answer": "structlog",
+    "answer_aliases": ["struct log"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q74",
+    "question": "What user-facing documentation platform does the team use?",
+    "category": "preference",
+    "evidence_session_ids": ["s35"],
+    "answer": "Mintlify",
+    "answer_aliases": ["mintlify"],
+    "difficulty": "easy",
+    "split": "dev"
+  },
+  {
+    "id": "q75",
+    "question": "What shortcut manager does Maya use?",
+    "category": "preference",
+    "evidence_session_ids": ["s31"],
+    "answer": "Raycast",
+    "answer_aliases": ["raycast"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q76",
+    "question": "Why were Heroku Eco dynos problematic?",
+    "category": "temporal",
+    "evidence_session_ids": ["s46", "s47"],
+    "answer": "Cold starts causing 5-second delays because dynos sleep after 30 minutes of inactivity",
+    "answer_aliases": ["cold starts", "5-second delays"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q77",
+    "question": "What notification template management approach is used?",
+    "category": "single_session",
+    "evidence_session_ids": ["s12"],
+    "answer": "Templates stored in the database so support team can edit without deploys",
+    "answer_aliases": ["database", "without deploys"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q78",
+    "question": "How does the team handle data deletion for GDPR after account closure?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s15", "s16"],
+    "answer": "Soft delete immediately, physical deletion in nightly batch job, 90-day retention window",
+    "answer_aliases": ["90 days", "soft delete"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q79",
+    "question": "What was the reason for rejecting MongoDB?",
+    "category": "adversarial",
+    "evidence_session_ids": ["s42"],
+    "answer": "To keep everything in one database (PostgreSQL with JSONB) rather than adding a second database",
+    "answer_aliases": ["JSONB", "one database"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q80",
+    "question": "What deploy method is used for production?",
+    "category": "single_session",
+    "evidence_session_ids": ["s04"],
+    "answer": "GitHub Actions",
+    "answer_aliases": ["github actions"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q81",
+    "question": "What query builder does Alex prefer over full ORMs?",
+    "category": "preference",
+    "evidence_session_ids": ["s39"],
+    "answer": "SQLAlchemy Core (not the ORM layer)",
+    "answer_aliases": ["SQLAlchemy Core"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q82",
+    "question": "What minimum touch target size does Maya require?",
+    "category": "preference",
+    "evidence_session_ids": ["s40"],
+    "answer": "44x44 pixels",
+    "answer_aliases": ["44px", "44x44"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q83",
+    "question": "How much did the CI migration save monthly?",
+    "category": "temporal",
+    "evidence_session_ids": ["s29"],
+    "answer": "$50/month saved by switching from CircleCI to GitHub Actions",
+    "answer_aliases": ["$50", "50 dollars"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q84",
+    "question": "What SMS provider is used for notifications?",
+    "category": "single_session",
+    "evidence_session_ids": ["s11"],
+    "answer": "Twilio",
+    "answer_aliases": ["twilio"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q85",
+    "question": "What real-time communication method is used for in-app notifications?",
+    "category": "single_session",
+    "evidence_session_ids": ["s11"],
+    "answer": "WebSocket",
+    "answer_aliases": ["websocket", "WebSockets"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q86",
+    "question": "What E2E testing framework is used?",
+    "category": "single_session",
+    "evidence_session_ids": ["s09"],
+    "answer": "Playwright",
+    "answer_aliases": ["playwright"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q87",
+    "question": "What is the cache TTL for the user profile endpoint?",
+    "category": "single_session",
+    "evidence_session_ids": ["s14"],
+    "answer": "10 minutes",
+    "answer_aliases": ["10 min", "ten minutes"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q88",
+    "question": "How often does the materialized view refresh?",
+    "category": "single_session",
+    "evidence_session_ids": ["s13"],
+    "answer": "Every 5 minutes",
+    "answer_aliases": ["5 minutes", "five minutes"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q89",
+    "question": "What DDoS protection does the infrastructure have?",
+    "category": "multi_session",
+    "evidence_session_ids": ["s19"],
+    "answer": "Cloudflare provides DDoS protection as a bonus of the CDN setup",
+    "answer_aliases": ["Cloudflare"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q90",
+    "question": "What merge strategy does the team use for git?",
+    "category": "preference",
+    "evidence_session_ids": ["s34"],
+    "answer": "Squash merges to keep main branch history clean",
+    "answer_aliases": ["squash merge", "squash"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q91",
+    "question": "What sprint cadence does the team follow?",
+    "category": "preference",
+    "evidence_session_ids": ["s37"],
+    "answer": "Two-week sprints with Friday retrospective, no daily standups, async updates in Linear",
+    "answer_aliases": ["two-week", "2-week"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q92",
+    "question": "How long did the Redux to Zustand migration take?",
+    "category": "temporal",
+    "evidence_session_ids": ["s25"],
+    "answer": "2 days",
+    "answer_aliases": ["two days", "2 day"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q93",
+    "question": "What was the main beta feedback?",
+    "category": "single_session",
+    "evidence_session_ids": ["s30"],
+    "answer": "Onboarding is confusing",
+    "answer_aliases": ["confusing onboarding", "onboarding"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q94",
+    "question": "What is the data retention policy after account deletion?",
+    "category": "single_session",
+    "evidence_session_ids": ["s15"],
+    "answer": "User data deleted 90 days after account deletion",
+    "answer_aliases": ["90 days"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q95",
+    "question": "What features does Redis provide that Memcached couldn't?",
+    "category": "temporal",
+    "evidence_session_ids": ["s50"],
+    "answer": "Pub/sub for real-time features and Redis Streams for event logging",
+    "answer_aliases": ["pub/sub", "Redis Streams"],
+    "difficulty": "medium",
+    "split": "dev"
+  },
+  {
+    "id": "q96",
+    "question": "Who was outvoted on the ORM decision?",
+    "category": "preference",
+    "evidence_session_ids": ["s39"],
+    "answer": "Alex (preferred raw SQL with SQLAlchemy Core but Maya and the team lead chose Prisma)",
+    "answer_aliases": ["Alex"],
+    "difficulty": "medium",
+    "split": "test"
+  },
+  {
+    "id": "q97",
+    "question": "What was wrong with Mailgun's delivery rates?",
+    "category": "temporal",
+    "evidence_session_ids": ["s27"],
+    "answer": "Delivery rates dropped below 95%",
+    "answer_aliases": ["below 95%", "under 95"],
+    "difficulty": "easy",
+    "split": "test"
+  },
+  {
+    "id": "q98",
+    "question": "Is the Clark API related to Clerk auth?",
+    "category": "adversarial",
+    "evidence_session_ids": ["s41"],
+    "answer": "No. Clark API is for internal admin (simple API keys). Clerk is for customer auth (OAuth). Completely separate systems.",
+    "answer_aliases": ["No", "separate"],
+    "difficulty": "hard",
+    "split": "test"
+  },
+  {
+    "id": "q99",
+    "question": "What frontend framework is used for the marketing site vs the SaaS app?",
+    "category": "adversarial",
+    "evidence_session_ids": ["s43", "s03"],
+    "answer": "Vue.js for marketing site, Next.js for SaaS app. Separate codebases.",
+    "answer_aliases": ["Vue for marketing", "Next.js for SaaS"],
+    "difficulty": "hard",
+    "split": "test"
+  },
+  {
+    "id": "q100",
+    "question": "What email service does the notification system currently use?",
+    "category": "knowledge_update",
+    "evidence_session_ids": ["s27", "s11"],
+    "answer": "SendGrid (consolidated after switching from Mailgun)",
+    "answer_aliases": ["SendGrid"],
+    "difficulty": "medium",
+    "split": "test"
+  }
+]

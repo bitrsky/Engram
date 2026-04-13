@@ -1,0 +1,602 @@
+[
+  {
+    "session_id": "s01",
+    "timestamp": "2025-01-15T10:00:00",
+    "project": "saas-app",
+    "topics": ["auth"],
+    "turns": [
+      {"role": "user", "content": "We need to decide on an auth provider for the SaaS app."},
+      {"role": "assistant", "content": "The main options are Auth0, Clerk, and Firebase Auth. Auth0 has the most enterprise features but is expensive."},
+      {"role": "user", "content": "We decided to go with Clerk. It has great developer experience and the pricing works for us."},
+      {"role": "assistant", "content": "Good choice. Clerk has excellent React hooks and supports social logins out of the box."}
+    ]
+  },
+  {
+    "session_id": "s02",
+    "timestamp": "2025-01-20T14:00:00",
+    "project": "saas-app",
+    "topics": ["database"],
+    "turns": [
+      {"role": "user", "content": "What database should we use for the SaaS app?"},
+      {"role": "assistant", "content": "For a SaaS app, PostgreSQL is a solid choice. It handles relational data well and has great JSON support."},
+      {"role": "user", "content": "Let's go with PostgreSQL. We'll use Prisma as the ORM."},
+      {"role": "assistant", "content": "PostgreSQL + Prisma is a proven stack. Prisma's type safety will help catch errors early."}
+    ]
+  },
+  {
+    "session_id": "s03",
+    "timestamp": "2025-01-25T09:00:00",
+    "project": "saas-app",
+    "topics": ["frontend"],
+    "turns": [
+      {"role": "user", "content": "For the frontend framework, we're going with Next.js 14 with the App Router."},
+      {"role": "assistant", "content": "Next.js 14 with App Router gives you server components by default. Great for performance."},
+      {"role": "user", "content": "Yes, and we'll use Tailwind CSS for styling and shadcn/ui for component library."},
+      {"role": "assistant", "content": "That's a popular combination. shadcn/ui components are customizable since they're copied into your project."}
+    ]
+  },
+  {
+    "session_id": "s04",
+    "timestamp": "2025-02-01T11:00:00",
+    "project": "saas-app",
+    "topics": ["deployment"],
+    "turns": [
+      {"role": "user", "content": "We'll deploy on Vercel for the frontend and Railway for the backend services."},
+      {"role": "assistant", "content": "Vercel is natural for Next.js. Railway is good for backend services with easy PostgreSQL hosting."},
+      {"role": "user", "content": "The staging environment will be on a separate Railway project. Production deploys happen through GitHub Actions."},
+      {"role": "assistant", "content": "Separate staging environments help catch issues before they hit production. GitHub Actions integration is straightforward with both platforms."}
+    ]
+  },
+  {
+    "session_id": "s05",
+    "timestamp": "2025-02-05T16:00:00",
+    "project": "saas-app",
+    "topics": ["payments"],
+    "turns": [
+      {"role": "user", "content": "For billing, we chose Stripe. We need subscription management with usage-based pricing."},
+      {"role": "assistant", "content": "Stripe's Billing API supports both fixed subscriptions and usage-based metering. You'll want to set up webhooks for subscription lifecycle events."},
+      {"role": "user", "content": "We'll have three tiers: Free (up to 100 API calls/day), Pro ($29/mo, 10k calls/day), and Enterprise (custom pricing)."},
+      {"role": "assistant", "content": "Clean tier structure. For usage tracking, consider storing API call counts in Redis for fast lookups."}
+    ]
+  },
+  {
+    "session_id": "s06",
+    "timestamp": "2025-02-10T10:00:00",
+    "project": "saas-app",
+    "topics": ["team"],
+    "turns": [
+      {"role": "user", "content": "Maya is our lead frontend developer. She'll own the dashboard UI and the onboarding flow."},
+      {"role": "assistant", "content": "Great. Having a dedicated frontend lead for the dashboard is important since it's the most user-facing part."},
+      {"role": "user", "content": "Alex handles all backend work including the API layer and database migrations. Jordan does DevOps."},
+      {"role": "assistant", "content": "Solid team structure with clear ownership. Jordan should set up the CI/CD pipelines early."}
+    ]
+  },
+  {
+    "session_id": "s07",
+    "timestamp": "2025-02-15T13:00:00",
+    "project": "saas-app",
+    "topics": ["api"],
+    "turns": [
+      {"role": "user", "content": "The API is built with FastAPI. We chose it over Express.js because of the automatic OpenAPI docs."},
+      {"role": "assistant", "content": "FastAPI's auto-generated docs save a lot of time. The type validation with Pydantic models is excellent."},
+      {"role": "user", "content": "Rate limiting is handled by a Redis-backed middleware at 100 requests per minute for free tier."},
+      {"role": "assistant", "content": "Redis is perfect for rate limiting with its TTL support. You might want to consider using a sliding window algorithm."}
+    ]
+  },
+  {
+    "session_id": "s08",
+    "timestamp": "2025-02-20T09:00:00",
+    "project": "saas-app",
+    "topics": ["monitoring"],
+    "turns": [
+      {"role": "user", "content": "We're using Sentry for error tracking and Datadog for infrastructure monitoring."},
+      {"role": "assistant", "content": "Sentry + Datadog is a common pairing. Sentry excels at error grouping and Datadog handles metrics/traces well."},
+      {"role": "user", "content": "Uptime monitoring is through Better Uptime. Alerts go to a dedicated Slack channel #saas-alerts."},
+      {"role": "assistant", "content": "Good to have a dedicated alert channel to avoid alert fatigue. Consider setting up escalation policies too."}
+    ]
+  },
+  {
+    "session_id": "s09",
+    "timestamp": "2025-02-25T15:00:00",
+    "project": "saas-app",
+    "topics": ["testing"],
+    "turns": [
+      {"role": "user", "content": "Our testing strategy: Vitest for unit tests, Playwright for E2E, and pytest for the FastAPI backend."},
+      {"role": "assistant", "content": "That covers all the bases. Vitest is fast for React component testing."},
+      {"role": "user", "content": "Code coverage target is 80% for backend and 60% for frontend. CI blocks merges below these thresholds."},
+      {"role": "assistant", "content": "80% backend coverage is aggressive but achievable with FastAPI's testclient. The CI gate ensures standards don't slip."}
+    ]
+  },
+  {
+    "session_id": "s10",
+    "timestamp": "2025-03-01T11:00:00",
+    "project": "saas-app",
+    "topics": ["security"],
+    "turns": [
+      {"role": "user", "content": "Security audit findings: we need to add CSRF protection and implement Content Security Policy headers."},
+      {"role": "assistant", "content": "CSRF tokens should be generated per-session. For CSP, start with a strict policy and loosen as needed."},
+      {"role": "user", "content": "We also added Snyk for dependency scanning. It runs in CI on every PR."},
+      {"role": "assistant", "content": "Snyk in CI catches vulnerable dependencies before they merge. Consider also running it on a schedule for newly discovered CVEs."}
+    ]
+  },
+  {
+    "session_id": "s11",
+    "timestamp": "2025-03-05T10:00:00",
+    "project": "saas-app",
+    "topics": ["architecture"],
+    "turns": [
+      {"role": "user", "content": "The notification system uses a message queue. We chose RabbitMQ for reliable delivery."},
+      {"role": "assistant", "content": "RabbitMQ's acknowledgment system ensures no notifications are lost. Consider dead letter queues for failed messages."},
+      {"role": "user", "content": "Notifications are sent via email (SendGrid), SMS (Twilio), and in-app (WebSocket)."},
+      {"role": "assistant", "content": "Three channels cover most use cases. The WebSocket connection for in-app is nice for real-time feedback."}
+    ]
+  },
+  {
+    "session_id": "s12",
+    "timestamp": "2025-03-10T14:00:00",
+    "project": "saas-app",
+    "topics": ["architecture"],
+    "turns": [
+      {"role": "user", "content": "The notification templates are stored in the database so they can be edited by the support team without deploys."},
+      {"role": "assistant", "content": "Template management in the DB is good for operational flexibility. Consider versioning templates."},
+      {"role": "user", "content": "Each notification has a priority level (critical, high, normal, low). Critical ones go through all three channels simultaneously."},
+      {"role": "assistant", "content": "Priority routing makes sense. Critical alerts via all channels ensures important messages aren't missed."}
+    ]
+  },
+  {
+    "session_id": "s13",
+    "timestamp": "2025-03-15T10:00:00",
+    "project": "saas-app",
+    "topics": ["performance"],
+    "turns": [
+      {"role": "user", "content": "Dashboard load time is currently 3.2 seconds. The main bottleneck is the analytics query that joins 4 tables."},
+      {"role": "assistant", "content": "3.2s is too slow for a dashboard. The 4-table join is likely the culprit."},
+      {"role": "user", "content": "We're implementing a materialized view that refreshes every 5 minutes. Initial tests show load time drops to 800ms."},
+      {"role": "assistant", "content": "800ms is much better. A 5-minute refresh interval is acceptable for analytics data that doesn't need real-time accuracy."}
+    ]
+  },
+  {
+    "session_id": "s14",
+    "timestamp": "2025-03-18T15:00:00",
+    "project": "saas-app",
+    "topics": ["performance"],
+    "turns": [
+      {"role": "user", "content": "We also added Redis caching for the user profile endpoint. Cache TTL is 10 minutes."},
+      {"role": "assistant", "content": "Redis caching for profiles is smart since they don't change frequently. 10 minutes is a good balance."},
+      {"role": "user", "content": "Combined with the materialized view, the overall dashboard experience is now under 1 second. The performance review is passing."},
+      {"role": "assistant", "content": "Sub-second dashboard with caching + materialized views. That's a good architecture for read-heavy dashboards."}
+    ]
+  },
+  {
+    "session_id": "s15",
+    "timestamp": "2025-03-22T10:00:00",
+    "project": "saas-app",
+    "topics": ["data", "compliance"],
+    "turns": [
+      {"role": "user", "content": "For GDPR compliance, we need data export and deletion APIs. The export format will be JSON."},
+      {"role": "assistant", "content": "JSON export is clean and machine-readable. Make sure to include all user data across all tables."},
+      {"role": "user", "content": "Data retention policy: user data is deleted 90 days after account deletion. Billing records are kept for 7 years."},
+      {"role": "assistant", "content": "90 days post-deletion gives time for accidental recovery while respecting GDPR. 7-year billing retention is standard for tax compliance."}
+    ]
+  },
+  {
+    "session_id": "s16",
+    "timestamp": "2025-03-25T14:00:00",
+    "project": "saas-app",
+    "topics": ["data"],
+    "turns": [
+      {"role": "user", "content": "The GDPR deletion process also needs to handle data in the analytics pipeline. Anonymization runs as a batch job."},
+      {"role": "assistant", "content": "Anonymization in analytics is often overlooked. Batch processing makes sense since analytics isn't real-time critical."},
+      {"role": "user", "content": "We use a soft-delete pattern. Records are marked deleted immediately but physical deletion happens in the nightly batch."},
+      {"role": "assistant", "content": "Soft delete + batch purge is a common pattern. It prevents accidental permanent loss while still meeting compliance deadlines."}
+    ]
+  },
+  {
+    "session_id": "s17",
+    "timestamp": "2025-04-01T10:00:00",
+    "project": "saas-app",
+    "topics": ["feature"],
+    "turns": [
+      {"role": "user", "content": "New feature: team workspaces. Multiple users can belong to a workspace with role-based access control."},
+      {"role": "assistant", "content": "RBAC with workspaces is essential for B2B SaaS. Common roles: owner, admin, member, viewer."},
+      {"role": "user", "content": "Exactly those four roles. The owner can transfer ownership. Admins manage members. Members can create and edit. Viewers are read-only."},
+      {"role": "assistant", "content": "Clear role hierarchy. Make sure ownership transfer requires email confirmation from both parties."}
+    ]
+  },
+  {
+    "session_id": "s18",
+    "timestamp": "2025-04-05T14:00:00",
+    "project": "saas-app",
+    "topics": ["feature"],
+    "turns": [
+      {"role": "user", "content": "The workspace feature also includes an audit log. Every action by every member is logged with timestamp and IP."},
+      {"role": "assistant", "content": "Audit logging is crucial for enterprise customers. IP logging helps with security investigations."},
+      {"role": "user", "content": "Audit logs are immutable (append-only table) and retained for 1 year. Enterprise tier gets 3 years."},
+      {"role": "assistant", "content": "Append-only is the right approach for audit integrity. The tiered retention adds value to Enterprise."}
+    ]
+  },
+  {
+    "session_id": "s19",
+    "timestamp": "2025-04-10T10:00:00",
+    "project": "saas-app",
+    "topics": ["infrastructure"],
+    "turns": [
+      {"role": "user", "content": "We need a CDN for static assets. Considering CloudFront vs Cloudflare."},
+      {"role": "assistant", "content": "Both are solid. Cloudflare has a generous free tier and easy setup. CloudFront integrates better if you're on AWS."},
+      {"role": "user", "content": "We're not on AWS, so Cloudflare it is. We'll put it in front of our Vercel deployment for extra caching."},
+      {"role": "assistant", "content": "Cloudflare in front of Vercel is a common setup. It adds DDoS protection as a bonus."}
+    ]
+  },
+  {
+    "session_id": "s20",
+    "timestamp": "2025-04-15T16:00:00",
+    "project": "saas-app",
+    "topics": ["infrastructure"],
+    "turns": [
+      {"role": "user", "content": "DNS is now managed through Cloudflare. They also handle our SSL certificates with automatic renewal."},
+      {"role": "assistant", "content": "Cloudflare managing DNS + SSL simplifies the infrastructure. One less thing to worry about with cert renewals."},
+      {"role": "user", "content": "Total infrastructure cost is about $350/month: Railway $120, Vercel $20, Cloudflare $0 (free tier), Datadog $150, misc $60."},
+      {"role": "assistant", "content": "$350/month is reasonable for a SaaS in early stages. The biggest cost is Datadog — consider Grafana Cloud as an alternative later."}
+    ]
+  },
+  {
+    "session_id": "s21",
+    "timestamp": "2025-01-10T10:00:00",
+    "project": "saas-app",
+    "topics": ["database"],
+    "turns": [
+      {"role": "user", "content": "Initial database discussion: we're considering MySQL for the SaaS app. It's what the team knows best."},
+      {"role": "assistant", "content": "MySQL is a solid choice if the team is experienced with it. Good ecosystem and hosting options."},
+      {"role": "user", "content": "Let's start with MySQL 8.0. We can always migrate later if needed."},
+      {"role": "assistant", "content": "MySQL 8.0 has good JSON support and window functions. Starting with what the team knows reduces risk."}
+    ]
+  },
+  {
+    "session_id": "s22",
+    "timestamp": "2025-02-28T10:00:00",
+    "project": "saas-app",
+    "topics": ["database"],
+    "turns": [
+      {"role": "user", "content": "We're hitting MySQL limitations with complex queries. The analytics dashboard needs window functions with CTEs that MySQL handles poorly."},
+      {"role": "assistant", "content": "MySQL's CTE performance has improved in 8.0 but PostgreSQL is generally stronger for complex analytical queries."},
+      {"role": "user", "content": "After benchmarking, we decided to migrate from MySQL to PostgreSQL. The migration is planned for March."},
+      {"role": "assistant", "content": "Smart move. PostgreSQL's query planner and analytical capabilities are more mature. Use pgloader for the migration — it handles MySQL to PostgreSQL well."}
+    ]
+  },
+  {
+    "session_id": "s23",
+    "timestamp": "2025-03-20T10:00:00",
+    "project": "saas-app",
+    "topics": ["database"],
+    "turns": [
+      {"role": "user", "content": "PostgreSQL migration completed on March 15th. All data transferred successfully via pgloader."},
+      {"role": "assistant", "content": "Congrats on completing the migration. How are the query performance numbers?"},
+      {"role": "user", "content": "Analytics queries are 4x faster. The materialized views we couldn't do in MySQL are working great now."},
+      {"role": "assistant", "content": "4x improvement validates the migration. Materialized views are a PostgreSQL strength that really pays off for dashboards."}
+    ]
+  },
+  {
+    "session_id": "s24",
+    "timestamp": "2025-02-01T09:00:00",
+    "project": "saas-app",
+    "topics": ["frontend"],
+    "turns": [
+      {"role": "user", "content": "Frontend state management: we started with Redux Toolkit. It handles our global state well."},
+      {"role": "assistant", "content": "Redux Toolkit simplifies Redux boilerplate significantly. Good for complex state management."},
+      {"role": "user", "content": "Maya set up the store with 5 slices: auth, workspace, notifications, settings, and ui."},
+      {"role": "assistant", "content": "Five slices for clear domain separation. The auth and workspace slices will likely be the most complex."}
+    ]
+  },
+  {
+    "session_id": "s25",
+    "timestamp": "2025-04-08T10:00:00",
+    "project": "saas-app",
+    "topics": ["frontend"],
+    "turns": [
+      {"role": "user", "content": "Maya switched from Redux to Zustand on April 5th. Redux was too much boilerplate for our needs."},
+      {"role": "assistant", "content": "Zustand is much lighter. For most SaaS apps, the simpler API is easier to maintain."},
+      {"role": "user", "content": "The migration took only 2 days. Bundle size dropped by 12KB. Developer experience is much better."},
+      {"role": "assistant", "content": "A 2-day migration with measurable bundle improvements is a clear win. Zustand's hooks-based API fits modern React well."}
+    ]
+  },
+  {
+    "session_id": "s26",
+    "timestamp": "2025-01-05T10:00:00",
+    "project": "saas-app",
+    "topics": ["email"],
+    "turns": [
+      {"role": "user", "content": "For transactional emails, we picked Mailgun. Good API and decent delivery rates."},
+      {"role": "assistant", "content": "Mailgun is reliable for transactional emails. Their API is well-documented."},
+      {"role": "user", "content": "We'll use it for welcome emails, password resets, and invoice receipts."},
+      {"role": "assistant", "content": "Standard transactional email use cases. Consider adding email templates in the dashboard for easy updates."}
+    ]
+  },
+  {
+    "session_id": "s27",
+    "timestamp": "2025-03-12T10:00:00",
+    "project": "saas-app",
+    "topics": ["email"],
+    "turns": [
+      {"role": "user", "content": "We're switching from Mailgun to SendGrid as of March 10th. Mailgun's delivery rates were dropping below 95%."},
+      {"role": "assistant", "content": "95% delivery rate is concerning. SendGrid typically achieves 97%+ with proper DKIM/SPF setup."},
+      {"role": "user", "content": "SendGrid is already integrated into our notification system from s11. This consolidates our email infrastructure."},
+      {"role": "assistant", "content": "Consolidating on SendGrid simplifies your notification stack. One provider for all email is easier to manage."}
+    ]
+  },
+  {
+    "session_id": "s28",
+    "timestamp": "2025-02-14T10:00:00",
+    "project": "saas-app",
+    "topics": ["ci-cd"],
+    "turns": [
+      {"role": "user", "content": "Our CI pipeline was initially on CircleCI. Build times were around 8 minutes."},
+      {"role": "assistant", "content": "8 minutes is okay but could be better. Are you using caching effectively?"},
+      {"role": "user", "content": "We had dependency caching but the Docker builds were slow. Jordan optimized it to 6 minutes."},
+      {"role": "assistant", "content": "6 minutes is better. Multi-stage Docker builds and layer caching can help further."}
+    ]
+  },
+  {
+    "session_id": "s29",
+    "timestamp": "2025-03-28T14:00:00",
+    "project": "saas-app",
+    "topics": ["ci-cd"],
+    "turns": [
+      {"role": "user", "content": "Jordan migrated CI from CircleCI to GitHub Actions on March 25th. Native GitHub integration is much smoother."},
+      {"role": "assistant", "content": "GitHub Actions eliminates the need for a separate CI service. How are the build times?"},
+      {"role": "user", "content": "Build times dropped to 4 minutes with GitHub's larger runners. And we save $50/month on CircleCI."},
+      {"role": "assistant", "content": "Faster builds AND cost savings. GitHub Actions with larger runners is hard to beat for GitHub-hosted projects."}
+    ]
+  },
+  {
+    "session_id": "s30",
+    "timestamp": "2025-04-20T10:00:00",
+    "project": "saas-app",
+    "topics": ["launch"],
+    "turns": [
+      {"role": "user", "content": "Launch timeline: private beta started April 1st with 50 users. Public launch is planned for May 15th."},
+      {"role": "assistant", "content": "50 beta users is a good sample size. What metrics are you tracking during beta?"},
+      {"role": "user", "content": "DAU is currently 32 out of 50 beta users. NPS score is 67. Main feedback: onboarding is confusing."},
+      {"role": "assistant", "content": "64% DAU is strong for beta. NPS 67 is good but the onboarding feedback needs attention before public launch."}
+    ]
+  },
+  {
+    "session_id": "s31",
+    "timestamp": "2025-02-12T10:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "By the way, Maya prefers dark mode in all her development tools. Her favorite editor is VS Code with the Vitesse Dark theme."},
+      {"role": "assistant", "content": "Vitesse Dark is a clean theme. Does she have any other tooling preferences?"},
+      {"role": "user", "content": "She uses Warp terminal and loves keyboard-driven workflows. Her favorite shortcut manager is Raycast."},
+      {"role": "assistant", "content": "Warp + Raycast + VS Code is a modern Mac-focused dev setup. Keyboard-driven workflows boost productivity."}
+    ]
+  },
+  {
+    "session_id": "s32",
+    "timestamp": "2025-02-18T11:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "Alex is a Vim purist. He uses Neovim with a custom config and refuses to use VS Code."},
+      {"role": "assistant", "content": "Neovim users tend to be very productive once they've customized their setup. Does he use a plugin manager?"},
+      {"role": "user", "content": "He uses lazy.nvim for plugins. His dotfiles are on GitHub. He says the best language is Rust but writes Python all day."},
+      {"role": "assistant", "content": "The classic Rust evangelist who writes Python — it's a common pattern! lazy.nvim is the modern standard for Neovim plugins."}
+    ]
+  },
+  {
+    "session_id": "s33",
+    "timestamp": "2025-03-02T10:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "Jordan prefers infrastructure as code over clicking in consoles. His favorite IaC tool is Pulumi, not Terraform."},
+      {"role": "assistant", "content": "Pulumi using real programming languages instead of HCL is its main advantage. Good for developers who dislike DSLs."},
+      {"role": "user", "content": "He also thinks Kubernetes is overkill for our scale. His go-to is Docker Compose for staging and Railway for production."},
+      {"role": "assistant", "content": "Pragmatic approach. K8s complexity isn't worth it until you hit a certain scale. Docker Compose + Railway keeps things simple."}
+    ]
+  },
+  {
+    "session_id": "s34",
+    "timestamp": "2025-03-08T14:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "My personal preference for code reviews: I like small PRs, under 400 lines. Big PRs get rubber-stamped and that's dangerous."},
+      {"role": "assistant", "content": "Research supports small PRs — review quality drops sharply above 400 lines. Some teams enforce PR size limits in CI."},
+      {"role": "user", "content": "I also prefer squash merges to keep the main branch history clean. No merge commits cluttering the log."},
+      {"role": "assistant", "content": "Squash merge + clean history is a popular strategy. It makes git bisect much more useful."}
+    ]
+  },
+  {
+    "session_id": "s35",
+    "timestamp": "2025-03-14T10:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "For our API documentation style, I prefer OpenAPI specs generated from code annotations, not hand-written YAML."},
+      {"role": "assistant", "content": "Code-first API docs stay in sync with the implementation. FastAPI does this automatically with Pydantic models."},
+      {"role": "user", "content": "Exactly. And for user-facing docs, I like Mintlify. It looks professional and supports MDX."},
+      {"role": "assistant", "content": "Mintlify has a clean design and good developer experience. MDX support lets you embed interactive components in docs."}
+    ]
+  },
+  {
+    "session_id": "s36",
+    "timestamp": "2025-03-19T11:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "The team agreed on a coding style: we use Ruff for Python linting (not flake8) and Biome for TypeScript (not ESLint)."},
+      {"role": "assistant", "content": "Both Ruff and Biome are the newer, faster alternatives. Ruff especially is blazingly fast compared to flake8."},
+      {"role": "user", "content": "We format on save and run lint checks in CI. No exceptions."},
+      {"role": "assistant", "content": "Format on save eliminates style discussions in code reviews. CI enforcement catches any missed formatting."}
+    ]
+  },
+  {
+    "session_id": "s37",
+    "timestamp": "2025-03-24T10:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "For project management, we tried Linear and Jira. The team unanimously chose Linear. Jira is too bloated."},
+      {"role": "assistant", "content": "Linear's speed and keyboard shortcuts appeal to dev teams. Jira's enterprise features come with complexity."},
+      {"role": "user", "content": "We use two-week sprints with a Friday retrospective. No daily standups — async updates in Linear instead."},
+      {"role": "assistant", "content": "Async updates respect different time zones and deep work sessions. Friday retros close the loop on each sprint."}
+    ]
+  },
+  {
+    "session_id": "s38",
+    "timestamp": "2025-04-02T14:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "My favorite debugging approach: always add structured logging first, then reproduce. Never guess."},
+      {"role": "assistant", "content": "Structured logging with correlation IDs makes tracing issues across services much easier."},
+      {"role": "user", "content": "We use structlog for Python backend. Every log entry has request_id, user_id, and endpoint fields."},
+      {"role": "assistant", "content": "structlog is excellent for structured logging in Python. Those three fields cover most debugging scenarios."}
+    ]
+  },
+  {
+    "session_id": "s39",
+    "timestamp": "2025-04-07T10:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "Alex's hot take: ORMs are a mistake. He prefers raw SQL with a thin query builder."},
+      {"role": "assistant", "content": "That's a valid position. ORMs add abstraction but can generate suboptimal queries. What's his preferred query builder?"},
+      {"role": "user", "content": "He likes SQLAlchemy Core (not the ORM layer). But we're using Prisma anyway because Maya and I outvoted him."},
+      {"role": "assistant", "content": "Democracy in tech stacks! Prisma's type safety and migration system outweigh raw SQL benefits for most teams."}
+    ]
+  },
+  {
+    "session_id": "s40",
+    "timestamp": "2025-04-12T15:00:00",
+    "project": "saas-app",
+    "topics": ["preferences"],
+    "turns": [
+      {"role": "user", "content": "Maya's design philosophy: mobile-first always. She starts every component in a 375px viewport."},
+      {"role": "assistant", "content": "Mobile-first CSS ensures the core experience works on the smallest screens. Progressive enhancement from there."},
+      {"role": "user", "content": "She also insists on a minimum touch target of 44x44 pixels and font size never below 16px."},
+      {"role": "assistant", "content": "44px touch targets follow Apple's HIG guidelines. 16px minimum prevents mobile zoom issues on iOS Safari."}
+    ]
+  },
+  {
+    "session_id": "s41",
+    "timestamp": "2025-03-05T14:00:00",
+    "project": "saas-app",
+    "topics": ["auth"],
+    "turns": [
+      {"role": "user", "content": "Speaking of auth, the Clark API (not Clerk) for our internal admin panel uses simple API keys, not OAuth."},
+      {"role": "assistant", "content": "API keys are fine for internal admin tools. Just make sure they're rotated regularly and stored securely."},
+      {"role": "user", "content": "The Clark API is completely separate from our customer-facing Clerk auth. Don't confuse them."},
+      {"role": "assistant", "content": "Good to clarify. Clark API for internal admin (API keys) vs Clerk for customer auth (OAuth/social). Very different systems."}
+    ]
+  },
+  {
+    "session_id": "s42",
+    "timestamp": "2025-03-10T10:00:00",
+    "project": "saas-app",
+    "topics": ["database"],
+    "turns": [
+      {"role": "user", "content": "We're considering MongoDB for the audit log storage. The flexible schema fits well for different event types."},
+      {"role": "assistant", "content": "MongoDB's document model is good for varied event structures. Just be careful about query patterns."},
+      {"role": "user", "content": "Actually, we decided against MongoDB. We'll use a JSONB column in PostgreSQL instead. Keeps everything in one database."},
+      {"role": "assistant", "content": "JSONB in PostgreSQL gives you document flexibility with the reliability of your existing database. Good call to avoid a second DB."}
+    ]
+  },
+  {
+    "session_id": "s43",
+    "timestamp": "2025-03-16T14:00:00",
+    "project": "saas-app",
+    "topics": ["frontend"],
+    "turns": [
+      {"role": "user", "content": "There was confusion about the frontend framework. Someone mentioned Vue.js in the standup."},
+      {"role": "assistant", "content": "Was there a proposal to switch from Next.js to Vue?"},
+      {"role": "user", "content": "No, that was for a completely different project — the marketing site. The main SaaS app is absolutely Next.js. Don't mix them up."},
+      {"role": "assistant", "content": "Got it. Next.js for the SaaS app, Vue.js for the marketing site. They're separate codebases."}
+    ]
+  },
+  {
+    "session_id": "s44",
+    "timestamp": "2025-04-03T10:00:00",
+    "project": "saas-app",
+    "topics": ["api"],
+    "turns": [
+      {"role": "user", "content": "The customer asked about GraphQL support. We discussed it but decided REST is sufficient for our API."},
+      {"role": "assistant", "content": "REST is simpler to cache and easier to document. GraphQL adds complexity that may not be justified yet."},
+      {"role": "user", "content": "If demand grows, we might add a GraphQL gateway later. But for V1, it's REST only with OpenAPI docs."},
+      {"role": "assistant", "content": "Starting simple with REST and adding GraphQL later if needed is a pragmatic approach. OpenAPI gives you good documentation."}
+    ]
+  },
+  {
+    "session_id": "s45",
+    "timestamp": "2025-04-18T15:00:00",
+    "project": "saas-app",
+    "topics": ["testing"],
+    "turns": [
+      {"role": "user", "content": "Bug report: someone said 'the app uses Firebase Auth' in a support ticket. That's wrong — we use Clerk."},
+      {"role": "assistant", "content": "Sounds like a confused customer or someone looking at old docs. Clerk is confirmed as the auth provider."},
+      {"role": "user", "content": "I checked — there was an old README that mentioned Firebase as an option during evaluation. That doc is now updated."},
+      {"role": "assistant", "content": "Good catch. Old documentation with outdated options can cause confusion. Make sure all public docs reflect the current Clerk setup."}
+    ]
+  },
+  {
+    "session_id": "s46",
+    "timestamp": "2025-01-18T10:00:00",
+    "project": "saas-app",
+    "topics": ["hosting"],
+    "turns": [
+      {"role": "user", "content": "Backend hosting: we initially deployed on Heroku. It's easy to set up and the team is familiar with it."},
+      {"role": "assistant", "content": "Heroku is great for getting started quickly. The dynos are easy to scale."},
+      {"role": "user", "content": "We're on the Heroku Eco plan for now. $5/month for the backend. Database is Heroku Postgres Mini."},
+      {"role": "assistant", "content": "Eco plan is fine for development and early testing. You'll want to upgrade before any real traffic hits."}
+    ]
+  },
+  {
+    "session_id": "s47",
+    "timestamp": "2025-03-01T10:00:00",
+    "project": "saas-app",
+    "topics": ["hosting"],
+    "turns": [
+      {"role": "user", "content": "We migrated from Heroku to Railway on February 28th. Heroku's cold starts were causing 5-second delays."},
+      {"role": "assistant", "content": "Heroku Eco dynos sleep after 30 minutes of inactivity, causing cold starts. Railway doesn't have this issue."},
+      {"role": "user", "content": "Railway also has better Docker support and the PostgreSQL add-on is more affordable."},
+      {"role": "assistant", "content": "Railway's always-on containers and better pricing make it a natural upgrade from Heroku Eco. Good timing for the migration."}
+    ]
+  },
+  {
+    "session_id": "s48",
+    "timestamp": "2025-01-12T10:00:00",
+    "project": "saas-app",
+    "topics": ["search"],
+    "turns": [
+      {"role": "user", "content": "We need full-text search for the app. Starting with Elasticsearch."},
+      {"role": "assistant", "content": "Elasticsearch is powerful but resource-heavy. Make sure your hosting can handle the memory requirements."},
+      {"role": "user", "content": "We'll run a single-node Elasticsearch cluster for now. The search index will cover projects and documents."},
+      {"role": "assistant", "content": "Single node is fine for development. Plan for at least 3 nodes in production for high availability."}
+    ]
+  },
+  {
+    "session_id": "s49",
+    "timestamp": "2025-03-08T10:00:00",
+    "project": "saas-app",
+    "topics": ["search"],
+    "turns": [
+      {"role": "user", "content": "Elasticsearch was too expensive to run. We switched to Meilisearch on March 5th. Much lighter and still fast."},
+      {"role": "assistant", "content": "Meilisearch is a great alternative for SaaS search. Typo-tolerant out of the box and much lower resource usage."},
+      {"role": "user", "content": "We're self-hosting Meilisearch on Railway. Costs us $8/month vs $45/month for the Elasticsearch instance."},
+      {"role": "assistant", "content": "$8 vs $45 is a significant saving. Meilisearch's simplicity also means less operational overhead."}
+    ]
+  },
+  {
+    "session_id": "s50",
+    "timestamp": "2025-04-14T10:00:00",
+    "project": "saas-app",
+    "topics": ["caching"],
+    "turns": [
+      {"role": "user", "content": "Caching strategy update: we started with Memcached but moved to Redis on April 10th."},
+      {"role": "assistant", "content": "Redis has more features than Memcached — data structures, persistence, pub/sub. Why the switch?"},
+      {"role": "user", "content": "We needed pub/sub for real-time features and Redis Streams for the event log. Memcached couldn't do either."},
+      {"role": "assistant", "content": "Redis Streams for event logging is clever. And pub/sub for real-time eliminates the need for a separate message broker in some cases."}
+    ]
+  }
+]

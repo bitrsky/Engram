@@ -152,6 +152,7 @@ def write_memory(
     source: str = "manual",
     importance: float = 3.0,
     memories_dir: str | Path = None,
+    memory_id: str = None,
 ) -> Path:
     """
     Write a new memory as a Markdown file.
@@ -172,6 +173,7 @@ def write_memory(
         source: "manual" | "claude-code" | "chatgpt" | "slack" | "ingest"
         importance: Initial importance weight (default 3.0)
         memories_dir: Override memories directory (default: ~/.engram/memories/)
+        memory_id: Override auto-generated ID (useful for benchmarks / imports)
 
     Returns:
         Path to the written file
@@ -182,7 +184,8 @@ def write_memory(
     memories_dir.mkdir(parents=True, exist_ok=True)
 
     now = datetime.now()
-    memory_id = generate_memory_id(content)
+    if memory_id is None:
+        memory_id = generate_memory_id(content)
     date_str = now.strftime("%Y-%m-%d")
 
     # Build frontmatter -------------------------------------------------------
