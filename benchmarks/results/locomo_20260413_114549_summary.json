@@ -1,0 +1,49 @@
+{
+  "dataset": "locomo",
+  "total_qa": 1536,
+  "n_conversations": 10,
+  "elapsed_seconds": 60.6,
+  "timestamp": "2026-04-13T11:45:49.978240",
+  "overall": {
+    "recall@3": 0.4271,
+    "strict_recall@3": 0.3702,
+    "ndcg@3": 0.3337,
+    "recall@5": 0.5065,
+    "strict_recall@5": 0.4494,
+    "ndcg@5": 0.3663,
+    "recall@10": 0.6549,
+    "strict_recall@10": 0.5959,
+    "ndcg@10": 0.4172,
+    "mrr": 0.384
+  },
+  "by_category": {
+    "commonsense": {
+      "count": 841,
+      "recall@3": 0.3769,
+      "recall@5": 0.4435,
+      "recall@10": 0.5826,
+      "mrr": 0.3465
+    },
+    "multi-hop": {
+      "count": 321,
+      "recall@3": 0.4953,
+      "recall@5": 0.5857,
+      "recall@10": 0.7009,
+      "mrr": 0.4263
+    },
+    "single-hop": {
+      "count": 282,
+      "recall@3": 0.539,
+      "recall@5": 0.6418,
+      "recall@10": 0.8511,
+      "mrr": 0.4807
+    },
+    "temporal": {
+      "count": 92,
+      "recall@3": 0.3043,
+      "recall@5": 0.3913,
+      "recall@10": 0.5543,
+      "mrr": 0.2832
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "variant": "s",
+  "total_questions": 500,
+  "evaluated": 470,
+  "skipped": 30,
+  "elapsed_seconds": 1487.2,
+  "timestamp": "2026-04-13T12:11:37.440626",
+  "overall": {
+    "recall@3": 0.8894,
+    "strict_recall@3": 0.7798,
+    "ndcg@3": 0.7809,
+    "recall@5": 0.9298,
+    "strict_recall@5": 0.86,
+    "ndcg@5": 0.8121,
+    "recall@10": 0.9681,
+    "strict_recall@10": 0.9289,
+    "ndcg@10": 0.8393,
+    "mrr": 0.8465
+  },
+  "by_category": {
+    "info-extraction": {
+      "count": 150,
+      "recall@3": 0.82,
+      "recall@5": 0.88,
+      "recall@10": 0.94,
+      "mrr": 0.7846
+    },
+    "knowledge-update": {
+      "count": 72,
+      "recall@3": 0.9167,
+      "recall@5": 0.9722,
+      "recall@10": 1.0,
+      "mrr": 0.8825
+    },
+    "multi-session": {
+      "count": 121,
+      "recall@3": 0.9504,
+      "recall@5": 0.9587,
+      "recall@10": 0.9917,
+      "mrr": 0.9177
+    },
+    "temporal-reasoning": {
+      "count": 127,
+      "recall@3": 0.8976,
+      "recall@5": 0.937,
+      "recall@10": 0.9606,
+      "mrr": 0.8316
+    }
+  }
+}

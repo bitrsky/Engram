@@ -1,0 +1,29 @@
+{
+  "variant": "s",
+  "total_questions": 10,
+  "evaluated": 10,
+  "skipped": 0,
+  "elapsed_seconds": 35.8,
+  "timestamp": "2026-04-13T11:46:40.404077",
+  "overall": {
+    "recall@3": 0.6,
+    "strict_recall@3": 0.6,
+    "ndcg@3": 0.5262,
+    "recall@5": 0.6,
+    "strict_recall@5": 0.6,
+    "ndcg@5": 0.5262,
+    "recall@10": 0.9,
+    "strict_recall@10": 0.9,
+    "ndcg@10": 0.6252,
+    "mrr": 0.5421
+  },
+  "by_category": {
+    "info-extraction": {
+      "count": 10,
+      "recall@3": 0.6,
+      "recall@5": 0.6,
+      "recall@10": 0.9,
+      "mrr": 0.5421
+    }
+  }
+}
